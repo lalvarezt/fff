@@ -17,7 +17,7 @@ SHELL := bash
 # string rather than the literal `-o` / `pipefail` tokens.
 .SHELLFLAGS := -o pipefail -euc
 
-.PHONY: build build-c-lib build-mcp install install-mcp install-pi-local remove-pi-online install-agents release-local uninstall test test-rust test-c-smoke test-c-api test-lua test-lua-snap test-version test-bun test-node test-js prepare-bun prepare-bun-packaged prepare-node prepare-pi set-npm-version header test-stress test-stress-seeded test-stress-random test-stress-regressions test-stress-repos test-node-stress sync-js-api sync-js-api-check bump-homebrew-formula bump-install-mcp-sh test-bun-compile
+.PHONY: build build-c-lib build-mcp install install-mcp install-mcp-artifact install-pi-local install-pi-artifact remove-pi-online install-agents release-local uninstall test test-rust test-c-smoke test-c-api test-lua test-lua-snap test-version test-bun test-node test-js prepare-bun prepare-bun-packaged prepare-node prepare-node-artifact prepare-pi prepare-pi-artifact set-npm-version header test-stress test-stress-seeded test-stress-random test-stress-regressions test-stress-repos test-node-stress sync-js-api sync-js-api-check bump-homebrew-formula bump-install-mcp-sh test-bun-compile
 
 all: format test lint
 
@@ -81,6 +81,9 @@ install: build-c-lib
 # Install the MCP binary used by Codex, Claude Code, OpenCode, and other MCP clients.
 # Defaults to ~/.local/bin to match install-mcp.sh; override BINDIR if needed.
 install-mcp: build-mcp
+	$(MAKE) install-mcp-artifact
+
+install-mcp-artifact:
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 0755 target/release/$(MCP_BIN) $(DESTDIR)$(BINDIR)/$(MCP_BIN)
 	@echo "Installed $(DESTDIR)$(BINDIR)/$(MCP_BIN)"
@@ -92,9 +95,15 @@ remove-pi-online:
 install-pi-local: remove-pi-online prepare-pi
 	pi install "$(CURDIR)/packages/pi-fff"
 
-# Single local release command: builds/install MCP for Codex and local pi package.
-install-agents release-local: install-mcp install-pi-local
-	@echo "Local FFF agent release is ready for Codex and pi"
+install-pi-artifact: remove-pi-online prepare-pi-artifact
+	pi install "$(CURDIR)/packages/pi-fff"
+
+# Build once, then install every local integration from the shared artifacts.
+install-agents: release-local
+
+release-local: build
+	$(MAKE) install-mcp-artifact install-pi-artifact
+	@echo "Local FFF release is ready for Neovim, Codex, and pi"
 
 uninstall:
 	rm -f $(DESTDIR)$(LIBDIR)/libfff_c.dylib
@@ -170,13 +179,22 @@ prepare-bun: build sync-js-api
 	cp target/release/libfff_c.so packages/fff-bun/bin/ 2>/dev/null || true; \
 	cp target/release/fff_c.dll packages/fff-bun/bin/ 2>/dev/null || true
 
-prepare-node: build-c-lib sync-js-api
+prepare-node: build-c-lib
+	$(MAKE) prepare-node-artifact
+
+prepare-node-artifact: sync-js-api
 	mkdir -p packages/fff-node/bin
 	cp target/release/libfff_c.dylib packages/fff-node/bin/ 2>/dev/null || true; \
 	cp target/release/libfff_c.so packages/fff-node/bin/ 2>/dev/null || true; \
 	cp target/release/fff_c.dll packages/fff-node/bin/ 2>/dev/null || true
 
 prepare-pi: prepare-node
+	cd packages/fff-node && npm install
+	cd packages/fff-node && npm run build
+	mkdir -p packages/pi-fff/node_modules/@ff-labs
+	ln -sfn ../../../fff-node packages/pi-fff/node_modules/@ff-labs/fff-node
+
+prepare-pi-artifact: prepare-node-artifact
 	cd packages/fff-node && npm install
 	cd packages/fff-node && npm run build
 	mkdir -p packages/pi-fff/node_modules/@ff-labs
