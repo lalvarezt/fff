@@ -4,6 +4,9 @@ MINI_DIR ?= ../mini.nvim
 PREFIX ?= /usr/local
 LIBDIR ?= $(PREFIX)/lib
 INCLUDEDIR ?= $(PREFIX)/include
+BINDIR ?= $(HOME)/.local/bin
+EXEEXT ?=
+MCP_BIN := fff-mcp$(EXEEXT)
 
 # Compile-time cfg that gates the watcher + git-status fuzz stress test.
 STRESS_RUSTFLAGS := --cfg stress
@@ -14,7 +17,7 @@ SHELL := bash
 # string rather than the literal `-o` / `pipefail` tokens.
 .SHELLFLAGS := -o pipefail -euc
 
-.PHONY: build build-c-lib install uninstall test test-rust test-c-smoke test-c-api test-lua test-lua-snap test-version test-bun test-node prepare-bun prepare-bun-packaged prepare-node set-npm-version header test-stress test-stress-seeded test-stress-random test-stress-regressions test-stress-repos test-node-stress sync-js-api sync-js-api-check bump-homebrew-formula bump-install-mcp-sh test-bun-compile
+.PHONY: build build-c-lib build-mcp install install-mcp install-pi-local remove-pi-online install-agents release-local uninstall test test-rust test-c-smoke test-c-api test-lua test-lua-snap test-version test-bun test-node test-js prepare-bun prepare-bun-packaged prepare-node prepare-pi set-npm-version header test-stress test-stress-seeded test-stress-random test-stress-regressions test-stress-repos test-node-stress sync-js-api sync-js-api-check bump-homebrew-formula bump-install-mcp-sh test-bun-compile
 
 all: format test lint
 
@@ -48,6 +51,9 @@ build:
 build-c-lib:
 	cargo build --release -p fff-c --no-default-features --features zlob
 
+build-mcp:
+	cargo build --release -p fff-mcp --features zlob
+
 header:
 	cbindgen --config crates/fff-c/cbindgen.toml --crate fff-c --output crates/fff-c/include/fff.h
 
@@ -71,6 +77,24 @@ install: build-c-lib
 		echo "Installed $(DESTDIR)$(LIBDIR)/fff_c.dll"; \
 	fi
 	@echo "Installed header $(DESTDIR)$(INCLUDEDIR)/fff.h"
+
+# Install the MCP binary used by Codex, Claude Code, OpenCode, and other MCP clients.
+# Defaults to ~/.local/bin to match install-mcp.sh; override BINDIR if needed.
+install-mcp: build-mcp
+	install -d $(DESTDIR)$(BINDIR)
+	install -m 0755 target/release/$(MCP_BIN) $(DESTDIR)$(BINDIR)/$(MCP_BIN)
+	@echo "Installed $(DESTDIR)$(BINDIR)/$(MCP_BIN)"
+
+remove-pi-online:
+	command -v pi >/dev/null || (echo "pi not found in PATH" && exit 1)
+	-pi remove npm:@ff-labs/pi-fff
+
+install-pi-local: remove-pi-online prepare-pi
+	pi install "$(CURDIR)/packages/pi-fff"
+
+# Single local release command: builds/install MCP for Codex and local pi package.
+install-agents release-local: install-mcp install-pi-local
+	@echo "Local FFF agent release is ready for Codex and pi"
 
 uninstall:
 	rm -f $(DESTDIR)$(LIBDIR)/libfff_c.dylib
@@ -146,11 +170,17 @@ prepare-bun: build sync-js-api
 	cp target/release/libfff_c.so packages/fff-bun/bin/ 2>/dev/null || true; \
 	cp target/release/fff_c.dll packages/fff-bun/bin/ 2>/dev/null || true
 
-prepare-node: build sync-js-api
+prepare-node: build-c-lib sync-js-api
 	mkdir -p packages/fff-node/bin
 	cp target/release/libfff_c.dylib packages/fff-node/bin/ 2>/dev/null || true; \
 	cp target/release/libfff_c.so packages/fff-node/bin/ 2>/dev/null || true; \
 	cp target/release/fff_c.dll packages/fff-node/bin/ 2>/dev/null || true
+
+prepare-pi: prepare-node
+	cd packages/fff-node && npm install
+	cd packages/fff-node && npm run build
+	mkdir -p packages/pi-fff/node_modules/@ff-labs
+	ln -sfn ../../../fff-node packages/pi-fff/node_modules/@ff-labs/fff-node
 
 test-bun: prepare-bun
 	cd packages/fff-bun && bun test test/

@@ -567,6 +567,19 @@ function M.compute(config, preview_user_enabled)
     row = math.floor(terminal_height * row_ratio)
   end
 
+  if config.layout.vertical_offset ~= nil then
+    local offset = utils.resolve_config_value(
+      config.layout.vertical_offset,
+      terminal_width,
+      terminal_height,
+      function(v) return type(v) == 'number' end,
+      0,
+      'layout.vertical_offset'
+    )
+    row = row + offset
+    row = math.max(top_edge - 1, math.min(row, bottom_edge - height - 1))
+  end
+
   local prompt_position = resolve_prompt_position(config)
   local preview_position = resolve_preview_position(config)
 

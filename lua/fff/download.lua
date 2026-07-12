@@ -271,6 +271,11 @@ function M.download_or_build_binary()
   local ok, wait_err = vim.wait(timeout_ms, function() return done end, 100)
   if not ok and wait_err == -2 then error('fff.nvim: download_or_build_binary timed out') end
 
+  if #vim.api.nvim_list_uis() == 0 then
+    io.stdout:write('\n')
+    io.stdout:flush()
+  end
+
   if fatal_error then error(fatal_error) end
 end
 

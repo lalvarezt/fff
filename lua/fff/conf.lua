@@ -6,6 +6,7 @@ local M = {}
 --- @field prompt_position string
 --- @field preview_position string
 --- @field preview_size number
+--- @field vertical_offset number
 --- @field min_list_height number
 --- @field show_scrollbar boolean
 --- @field path_shorten_strategy string
@@ -230,6 +231,7 @@ local function init()
       -- 'solid', 'shadow' or 'none'. Leave unset (nil) to follow the global
       -- `vim.o.winborder` setting.
       border = nil,
+      vertical_offset = 0, -- Move vertically in screen lines (negative = up, positive = down)
       flex = { -- set to nil to disable flex layout
         size = 130, -- column threshold: if screen width >= size, use preview_position; otherwise use wrap
         wrap = 'top', -- position to use when screen is narrower than size
