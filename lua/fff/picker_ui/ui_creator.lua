@@ -452,9 +452,23 @@ function M.setup_keymaps()
     set_keymap('n', keymaps.send_to_quickfix, P.send_to_quickfix, preview_opts)
   end
 
-  vim.api.nvim_buf_attach(S.input_buf, false, {
+  local input_buf = S.input_buf
+  local input_change_pending = false
+
+  vim.api.nvim_buf_attach(input_buf, false, {
     on_lines = function()
-      vim.schedule(function() P.on_input_change() end)
+      if input_change_pending then return end
+      input_change_pending = true
+
+      vim.schedule(function()
+        local ok, err = true, nil
+        if S.active and S.input_buf == input_buf and vim.api.nvim_buf_is_valid(input_buf) then
+          ok, err = xpcall(P.on_input_change, debug.traceback)
+        end
+
+        input_change_pending = false
+        if not ok then error(err) end
+      end)
     end,
   })
 

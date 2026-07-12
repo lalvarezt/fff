@@ -1,6 +1,7 @@
 --- File Renderer
 --- Simple renderer for file items with 2 functions: render_line and apply_highlights
 local M = {}
+local icons = require('fff.file_picker.icons')
 
 --- File Item structure from Rust
 --- @class FileItem
@@ -21,7 +22,6 @@ local M = {}
 --- @param item_idx number|nil 1-based item index in ctx.items
 --- @return string[] Array of line strings (always exactly 1)
 function M.render_line(item, ctx, item_idx) -- luacheck: ignore item_idx
-  local icons = require('fff.file_picker.icons')
   local lines = {}
 
   local icon, _ = icons.get_icon(item.name, item.extension, false)

@@ -1,4 +1,5 @@
 local M = {}
+local scheduled_render_buf = nil
 
 local conf = require('fff.conf')
 local file_picker = require('fff.file_picker')
@@ -301,8 +302,14 @@ function M.toggle_debug()
 end
 
 function M.render_debounced()
+  local list_buf = M.state.list_buf
+  if not list_buf or scheduled_render_buf == list_buf then return end
+
+  scheduled_render_buf = list_buf
   vim.schedule(function()
-    if M.state.active then
+    if scheduled_render_buf == list_buf then scheduled_render_buf = nil end
+
+    if M.state.active and M.state.list_buf == list_buf and vim.api.nvim_buf_is_valid(list_buf) then
       M.render_list()
       M.update_preview()
       M.update_status()

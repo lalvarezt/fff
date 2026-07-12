@@ -135,3 +135,255 @@ describe('grep_jump_to_next_file / grep_jump_to_prev_file', function()
     picker_ui.load_next_page = original_load_next
   end)
 end)
+
+local function wait_for_picker_work(predicate)
+  assert.is_true(vim.wait(1000, predicate, 10), 'scheduled picker work did not complete')
+end
+
+local function flush_picker_work()
+  vim.wait(30, function() return false end, 10)
+end
+
+for _, prompt_position in ipairs({ 'top', 'bottom' }) do
+  describe('picker input coalescing (' .. prompt_position .. ')', function()
+    local buffers
+    local queries
+    local original
+    local input_conf
+    local input_search_manager
+    local input_ui_creator
+
+    local function new_buffer(lines)
+      local S = state_mod.state
+      local buf = vim.api.nvim_create_buf(false, true)
+      table.insert(buffers, buf)
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines or { S.config.prompt })
+      return buf
+    end
+
+    local function attach_input(buf)
+      state_mod.state.input_buf = buf
+      input_ui_creator.init(picker_ui)
+      input_ui_creator.setup_keymaps()
+    end
+
+    before_each(function()
+      picker_ui = require('fff.picker_ui.picker_ui')
+      state_mod = require('fff.picker_ui.picker_ui_state')
+      input_conf = require('fff.conf')
+      input_search_manager = require('fff.picker_ui.search_manager')
+      input_ui_creator = require('fff.picker_ui.ui_creator')
+
+      local S = state_mod.state
+      buffers = {}
+      queries = {}
+      original = {
+        active = S.active,
+        config = S.config,
+        input_buf = S.input_buf,
+        input_win = S.input_win,
+        list_buf = S.list_buf,
+        preview_buf = S.preview_buf,
+        query = S.query,
+        on_input_change = picker_ui.on_input_change,
+        update_results_sync = input_search_manager.update_results_sync,
+      }
+
+      S.config = vim.deepcopy(input_conf.get())
+      S.config.layout.prompt_position = prompt_position
+      S.config.prompt_vim_mode = false
+      S.active = true
+      S.query = ''
+      S.input_win = nil
+      S.preview_buf = nil
+      S.list_buf = new_buffer({ '' })
+
+      input_search_manager.update_results_sync = function() table.insert(queries, S.query) end
+      attach_input(new_buffer())
+    end)
+
+    after_each(function()
+      local S = state_mod.state
+      S.active = false
+      S.input_buf = nil
+      S.list_buf = nil
+      flush_picker_work()
+
+      picker_ui.on_input_change = original.on_input_change
+      input_search_manager.update_results_sync = original.update_results_sync
+      S.active = original.active
+      S.config = original.config
+      S.input_buf = original.input_buf
+      S.input_win = original.input_win
+      S.list_buf = original.list_buf
+      S.preview_buf = original.preview_buf
+      S.query = original.query
+
+      for _, buf in ipairs(buffers) do
+        if vim.api.nvim_buf_is_valid(buf) then vim.api.nvim_buf_delete(buf, { force = true }) end
+      end
+    end)
+
+    it('searches only the final same-tick buffer state', function()
+      local S = state_mod.state
+      local prompt = S.config.prompt
+      vim.api.nvim_buf_set_lines(S.input_buf, 0, -1, false, { prompt .. 'a' })
+      vim.api.nvim_buf_set_lines(S.input_buf, 0, -1, false, { prompt .. 'ab' })
+      vim.api.nvim_buf_set_lines(S.input_buf, 0, -1, false, { prompt .. 'abc' })
+
+      wait_for_picker_work(function() return #queries == 1 end)
+      assert.are.same({ 'abc' }, queries)
+    end)
+
+    it('coalesces a rapid edit burst', function()
+      local S = state_mod.state
+      local line = S.config.prompt
+      for char in ('rapid_input_burst'):gmatch('.') do
+        vim.api.nvim_buf_set_text(S.input_buf, 0, #line, 0, #line, { char })
+        line = line .. char
+      end
+
+      wait_for_picker_work(function() return S.query == 'rapid_input_burst' end)
+      assert.are.same({ 'rapid_input_burst' }, queries)
+    end)
+
+    it('processes changes from separate event-loop turns', function()
+      local S = state_mod.state
+      local prompt = S.config.prompt
+      vim.api.nvim_buf_set_lines(S.input_buf, 0, -1, false, { prompt .. 'a' })
+      wait_for_picker_work(function() return #queries == 1 end)
+
+      vim.api.nvim_buf_set_lines(S.input_buf, 0, -1, false, { prompt .. 'ab' })
+      wait_for_picker_work(function() return #queries == 2 end)
+      assert.are.same({ 'a', 'ab' }, queries)
+    end)
+
+    it('does not reschedule after prompt normalization', function()
+      local S = state_mod.state
+      local prompt = S.config.prompt
+      vim.api.nvim_buf_set_lines(S.input_buf, 0, -1, false, { prompt .. '  alpha', ' beta  ' })
+
+      wait_for_picker_work(function() return #queries == 1 end)
+      flush_picker_work()
+      assert.are.same({ 'alpha beta' }, queries)
+      assert.are.same({ prompt .. 'alpha beta' }, vim.api.nvim_buf_get_lines(S.input_buf, 0, -1, false))
+    end)
+
+    it('ignores work for a picker closed before the callback', function()
+      local S = state_mod.state
+      vim.api.nvim_buf_set_lines(S.input_buf, 0, -1, false, { S.config.prompt .. 'stale' })
+      S.active = false
+      S.input_buf = nil
+
+      flush_picker_work()
+      assert.are.same({}, queries)
+    end)
+
+    it('ignores stale work after reopening with a new buffer', function()
+      local S = state_mod.state
+      vim.api.nvim_buf_set_lines(S.input_buf, 0, -1, false, { S.config.prompt .. 'stale' })
+      S.active = false
+      S.input_buf = nil
+
+      local replacement = new_buffer()
+      S.active = true
+      attach_input(replacement)
+      vim.api.nvim_buf_set_lines(replacement, 0, -1, false, { S.config.prompt .. 'fresh' })
+
+      wait_for_picker_work(function() return #queries == 1 end)
+      assert.are.same({ 'fresh' }, queries)
+    end)
+
+    it('refreshes an unchanged restored query once', function()
+      local S = state_mod.state
+      S.query = 'restored'
+      vim.api.nvim_buf_set_lines(S.input_buf, 0, -1, false, { S.config.prompt .. 'restored' })
+
+      wait_for_picker_work(function() return #queries == 1 end)
+      assert.are.same({ 'restored' }, queries)
+    end)
+  end)
+end
+
+describe('picker render coalescing', function()
+  local buffers
+  local original
+  local rendered_buffers
+  local previews
+  local statuses
+
+  local function new_buffer()
+    local buf = vim.api.nvim_create_buf(false, true)
+    table.insert(buffers, buf)
+    return buf
+  end
+
+  before_each(function()
+    picker_ui = require('fff.picker_ui.picker_ui')
+    state_mod = require('fff.picker_ui.picker_ui_state')
+
+    local S = state_mod.state
+    buffers = {}
+    rendered_buffers = {}
+    previews = 0
+    statuses = 0
+    original = {
+      active = S.active,
+      list_buf = S.list_buf,
+      render_list = picker_ui.render_list,
+      update_preview = picker_ui.update_preview,
+      update_status = picker_ui.update_status,
+    }
+
+    S.active = true
+    S.list_buf = new_buffer()
+    picker_ui.render_list = function() table.insert(rendered_buffers, S.list_buf) end
+    picker_ui.update_preview = function() previews = previews + 1 end
+    picker_ui.update_status = function() statuses = statuses + 1 end
+  end)
+
+  after_each(function()
+    local S = state_mod.state
+    S.active = false
+    S.list_buf = nil
+    flush_picker_work()
+
+    picker_ui.render_list = original.render_list
+    picker_ui.update_preview = original.update_preview
+    picker_ui.update_status = original.update_status
+    S.active = original.active
+    S.list_buf = original.list_buf
+
+    for _, buf in ipairs(buffers) do
+      if vim.api.nvim_buf_is_valid(buf) then vim.api.nvim_buf_delete(buf, { force = true }) end
+    end
+  end)
+
+  it('renders once for repeated requests on one buffer', function()
+    local expected_buf = state_mod.state.list_buf
+    picker_ui.render_debounced()
+    picker_ui.render_debounced()
+    picker_ui.render_debounced()
+
+    wait_for_picker_work(function() return #rendered_buffers == 1 end)
+    assert.are.same({ expected_buf }, rendered_buffers)
+    assert.are.equal(1, previews)
+    assert.are.equal(1, statuses)
+  end)
+
+  it('skips stale work and renders a replacement buffer', function()
+    local S = state_mod.state
+    local old_buf = S.list_buf
+    picker_ui.render_debounced()
+
+    local replacement = new_buffer()
+    S.list_buf = replacement
+    picker_ui.render_debounced()
+
+    wait_for_picker_work(function() return #rendered_buffers == 1 end)
+    assert.are.same({ replacement }, rendered_buffers)
+    assert.are_not.equal(old_buf, rendered_buffers[1])
+    assert.are.equal(1, previews)
+    assert.are.equal(1, statuses)
+  end)
+end)
