@@ -69,6 +69,7 @@ fn match_fuzzy_parts(
     let resolve_ref = |file: &&FileItem,
                        buf: &mut [*const u8; MAX_PATH_CHUNKS]|
      -> Option<(usize, u16)> { resolve_file_chunks(file, arena, buf) };
+    let threads_for = |len: usize| max_threads.min(len.div_ceil(2048)).max(1);
 
     let first_part_matches = match working_files {
         FileItems::All(files) => neo_frizbee::match_list_parallel_resolved(
@@ -76,14 +77,14 @@ fn match_fuzzy_parts(
             files,
             &resolve,
             options,
-            max_threads,
+            threads_for(files.len()),
         ),
         FileItems::Filtered(files) => neo_frizbee::match_list_parallel_resolved(
             valid_parts[0],
             files.as_slice(),
             &resolve_ref,
             options,
-            max_threads,
+            threads_for(files.len()),
         ),
     };
 
@@ -108,7 +109,7 @@ fn match_fuzzy_parts(
             subset.as_slice(),
             &resolve_ref,
             &part_options,
-            max_threads,
+            threads_for(subset.len()),
         );
 
         if sub_matches.is_empty() {
