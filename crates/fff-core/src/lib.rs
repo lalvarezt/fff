@@ -20,6 +20,9 @@
 //! - [`grep`] — Live grep search supporting regex, plain-text, and fuzzy modes
 //!   with optional constraint filtering.
 //! - [`git`] — Git status caching and repository detection.
+//! - [`watch`] — Client-facing filesystem watch subscriptions: glob, exact
+//!   path, or directory subtree with normalized batch delivery
+//!   (see [`SharedFilePicker::watch`]).
 //!
 //! ## Shared State
 //!
@@ -120,7 +123,7 @@ pub mod git;
 pub mod grep;
 pub use grep::*;
 
-/// Tracing/logging initialization and panic hook setup.
+/// Tracing/logging initialization
 pub mod log;
 
 /// Various path utils might be handy for you to work with fff paths
@@ -135,13 +138,11 @@ pub mod constants;
 // ==================================
 // these are public only for benchmarks, no backward compatibility guaranteed
 #[doc(hidden)]
-pub mod bigram_filter;
+pub use index::bigram_filter;
 #[doc(hidden)]
 pub mod simd_string_utils;
 // ==================================
 
-mod background_watcher;
-mod constraints;
 mod error;
 mod git_status_worker;
 mod ignore;
@@ -149,11 +150,17 @@ mod scan;
 mod score;
 mod sort_buffer;
 
-pub(crate) mod bigram_query;
+pub(crate) mod index;
 pub(crate) mod parallelism;
 pub(crate) mod simd_path;
 pub(crate) mod stable_vec;
 pub(crate) mod walk;
+
+/// Filesystem watch subscriptions with glob filtering and batched delivery,
+/// plus the background OS watcher.
+#[path = "watcher/mod.rs"]
+pub mod watch;
+pub use watch::{WatchEvent, WatchEventKind, WatchId, WatchOptions};
 
 // fff error
 pub use error::{Error, Result};

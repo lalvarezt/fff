@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicI32, AtomicU8, AtomicU64, AtomicUsize, Ordering};
 #[cfg(not(target_os = "windows"))]
 use crate::constants::{FRESH_MMAP_THRESHOLD, MMAP_THRESHOLD};
 use crate::constants::{MAX_CACHED_CONTENT_BYTES, MAX_FFFILE_SIZE, PATH_BUF_SIZE};
-use crate::constraints::Constrainable;
+use crate::index::constraints::Constrainable;
 use crate::query_tracker::QueryMatchEntry;
 use crate::simd_path::ArenaPtr;
 use fff_query_parser::{FFFQuery, FuzzyQuery, Location};
@@ -69,6 +69,7 @@ pub struct DirFlags;
 
 impl DirFlags {
     pub const OVERFLOW: u8 = 1 << 0;
+    pub const DELETED: u8 = 1 << 1;
 }
 
 /// A directory in the file index. Shares chunk arena with file paths.
@@ -101,10 +102,41 @@ impl DirItem {
         self.flags & DirFlags::OVERFLOW != 0
     }
 
+    #[inline(always)]
+    pub fn is_deleted(&self) -> bool {
+        self.flags & DirFlags::DELETED != 0
+    }
+
+    /// Marks the dir deleted/restored. Returns `true` when the state changed.
+    pub(crate) fn set_deleted(&mut self, deleted: bool) -> bool {
+        if self.is_deleted() == deleted {
+            return false;
+        }
+        if deleted {
+            self.flags |= DirFlags::DELETED;
+        } else {
+            self.flags &= !DirFlags::DELETED;
+        }
+        true
+    }
+
     pub(crate) fn new(path: crate::simd_path::ChunkedString, last_segment_offset: u16) -> Self {
         Self {
             path,
             flags: 0,
+            last_segment_offset,
+            max_access_frecency: AtomicI32::new(0),
+        }
+    }
+
+    /// A dir appended after the initial scan; its path lives in the overflow arena.
+    pub(crate) fn new_overflow(
+        path: crate::simd_path::ChunkedString,
+        last_segment_offset: u16,
+    ) -> Self {
+        Self {
+            path,
+            flags: DirFlags::OVERFLOW,
             last_segment_offset,
             max_access_frecency: AtomicI32::new(0),
         }
@@ -831,6 +863,7 @@ impl ScoringContext<'_> {
 pub struct SearchResult<'a> {
     pub items: Vec<&'a FileItem>,
     pub scores: Vec<Score>,
+    pub match_byte_offsets: Vec<smallvec::SmallVec<[(u32, u32); 4]>>,
     pub total_matched: usize,
     pub total_files: usize,
     pub location: Option<Location>,

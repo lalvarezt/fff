@@ -1,10 +1,13 @@
 [package]
 name = "fff-search"
-version = "0.9.6"
+version = "0.10.0"
 edition = "2024"
 license = "MIT"
 authors = ["Dmitriy Kovalenko <dmtr.kovalenko@outlook.com>"]
 description = "Faboulous & Fast File Finder - a fast and extremely correct file finder SDK with typo resistance, SIMD, prefiltering, and more"
+
+[lints]
+workspace = true
 
 [lib]
 path = "src/lib.rs"
@@ -26,6 +29,10 @@ harness = false
 name = "glob_bench"
 harness = false
 required-features = ["zlob"]
+
+[[bench]]
+name = "grep_bench"
+harness = false
 
 [features]
 # `ripgrep` is the pure-Rust walker/glob backend and is on by default so
