@@ -17,7 +17,7 @@ SHELL := bash
 # string rather than the literal `-o` / `pipefail` tokens.
 .SHELLFLAGS := -o pipefail -euc
 
-.PHONY: build build-c-lib build-mcp install install-mcp install-mcp-artifact install-pi-local install-pi-artifact remove-pi-online install-agents release-local uninstall test test-rust test-c-smoke test-c-api test-lua test-lua-snap test-version test-bun test-node test-js prepare-bun prepare-bun-packaged prepare-node prepare-node-artifact prepare-pi prepare-pi-artifact set-npm-version header test-stress test-stress-seeded test-stress-random test-stress-regressions test-stress-repos test-node-stress sync-js-api sync-js-api-check bump-homebrew-formula bump-install-mcp-sh test-bun-compile
+.PHONY: build build-c-lib build-mcp install install-mcp install-mcp-artifact install-pi-local install-pi-artifact remove-pi-online install-agents release-local uninstall test test-rust test-rescan test-rescan-known-defects rescan-probe test-c-smoke test-c-api test-lua test-lua-snap test-version test-bun test-node test-js prepare-bun prepare-bun-packaged prepare-node prepare-node-artifact prepare-pi prepare-pi-artifact set-npm-version header test-stress test-stress-seeded test-stress-random test-stress-regressions test-stress-repos test-node-stress sync-js-api sync-js-api-check bump-homebrew-formula bump-install-mcp-sh test-bun-compile
 
 all: format test lint
 
@@ -124,6 +124,25 @@ test-setup:
 
 test-rust:
 	cargo test --workspace --no-default-features --features zlob --exclude fff-nvim
+
+# Watcher rescan harness: asserts that editing, build output, git activity and
+# preview reads all stay on the incremental path instead of re-walking the tree.
+test-rescan:
+	cargo test -p fff-search --no-default-features --features zlob \
+		--lib --test rescan_regression -- rescan
+
+# Live probe for watcher rescan requests and their causes.
+# Usage: make rescan-probe DIR=~/some/repo [SECONDS=120]
+rescan-probe:
+	cargo run --release -p fff-nvim --bin rescan_probe \
+		--no-default-features --features zlob,rescan-stats -- \
+		$(or $(DIR),.) $(if $(SECONDS),--seconds $(SECONDS),)
+
+# The same harness, restricted to cases that currently fail on purpose. Each
+# `#[ignore]` reason names the code that causes the unnecessary rescan.
+test-rescan-known-defects:
+	cargo test --no-fail-fast -p fff-search --no-default-features --features zlob \
+		--lib --test rescan_regression -- --ignored --nocapture
 
 CC ?= cc
 CFLAGS ?= -O0 -g -Wall -Wextra -std=c99
@@ -306,6 +325,9 @@ set-npm-version:
 			for (const dep of Object.keys(pkg.optionalDependencies)) { \
 				pkg.optionalDependencies[dep] = '$(VERSION)'; \
 			} \
+		} \
+		for (const dep of ['@ff-labs/fff-bun', '@ff-labs/fff-node']) { \
+			if (pkg.dependencies?.[dep]) pkg.dependencies[dep] = '$(VERSION)'; \
 		} \
 		fs.writeFileSync('$(PKG)/package.json', JSON.stringify(pkg, null, 2) + '\n'); \
 	"

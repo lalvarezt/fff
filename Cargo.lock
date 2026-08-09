@@ -633,7 +633,7 @@ checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
 
 [[package]]
 name = "fff-c"
-version = "0.10.1"
+version = "0.10.3"
 dependencies = [
  "fff-query-parser",
  "fff-search",
@@ -643,7 +643,7 @@ dependencies = [
 
 [[package]]
 name = "fff-grep"
-version = "0.10.1"
+version = "0.10.3"
 dependencies = [
  "bstr",
  "memchr",
@@ -651,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "fff-mcp"
-version = "0.10.1"
+version = "0.10.3"
 dependencies = [
  "clap",
  "fff-query-parser",
@@ -682,7 +682,7 @@ dependencies = [
 
 [[package]]
 name = "fff-nvim"
-version = "0.10.1"
+version = "0.10.3"
 dependencies = [
  "ahash",
  "chrono",
@@ -703,7 +703,7 @@ dependencies = [
 
 [[package]]
 name = "fff-python"
-version = "0.10.1"
+version = "0.10.3"
 dependencies = [
  "fff-query-parser",
  "fff-search",
@@ -713,7 +713,7 @@ dependencies = [
 
 [[package]]
 name = "fff-query-parser"
-version = "0.10.1"
+version = "0.10.3"
 dependencies = [
  "criterion",
  "zlob",
@@ -721,7 +721,7 @@ dependencies = [
 
 [[package]]
 name = "fff-search"
-version = "0.10.1"
+version = "0.10.3"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -925,15 +925,14 @@ dependencies = [
 
 [[package]]
 name = "git2"
-version = "0.20.4"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b88256088d75a56f8ecfa070513a775dd9107f6530ef14919dac831af9cfe2b"
+checksum = "ddddbf932745a6be37109b6112d3ee09696106f848449069d3a57bba937ab82e"
 dependencies = [
  "bitflags 2.11.0",
  "libc",
  "libgit2-sys",
  "log",
- "url",
 ]
 
 [[package]]
@@ -1333,9 +1332,9 @@ checksum = "b5b646652bf6661599e1da8901b3b9522896f01e736bad5f723fe7a3a27f899d"
 
 [[package]]
 name = "libgit2-sys"
-version = "0.18.3+1.9.2"
+version = "0.18.7+1.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9b3acc4b91781bb0b3386669d325163746af5f6e4f73e6d2d630e09a35f3487"
+checksum = "23c7391e4b9f4ffab1a624223cc1d7385ff9a678f490768add717de7ea2f4d89"
 dependencies = [
  "cc",
  "libc",
@@ -3236,9 +3235,9 @@ dependencies = [
 
 [[package]]
 name = "zlob"
-version = "1.6.1"
+version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e41cb327ac1b7e7e0d4514658500cb5734cd655edbe4e5ffeda69955da9028ee"
+checksum = "57e7ca1588981ea66f5ac470915c4cb44a47ecfb5797576f65fca1bafacedf4e"
 dependencies = [
  "bindgen",
  "bitflags 2.11.0",
