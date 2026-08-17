@@ -633,7 +633,7 @@ checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
 
 [[package]]
 name = "fff-c"
-version = "0.10.3"
+version = "0.10.5"
 dependencies = [
  "fff-query-parser",
  "fff-search",
@@ -643,7 +643,7 @@ dependencies = [
 
 [[package]]
 name = "fff-grep"
-version = "0.10.3"
+version = "0.10.5"
 dependencies = [
  "bstr",
  "memchr",
@@ -651,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "fff-mcp"
-version = "0.10.3"
+version = "0.10.5"
 dependencies = [
  "clap",
  "fff-query-parser",
@@ -662,8 +662,10 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -682,7 +684,7 @@ dependencies = [
 
 [[package]]
 name = "fff-nvim"
-version = "0.10.3"
+version = "0.10.5"
 dependencies = [
  "ahash",
  "chrono",
@@ -703,7 +705,7 @@ dependencies = [
 
 [[package]]
 name = "fff-python"
-version = "0.10.3"
+version = "0.10.5"
 dependencies = [
  "fff-query-parser",
  "fff-search",
@@ -713,7 +715,7 @@ dependencies = [
 
 [[package]]
 name = "fff-query-parser"
-version = "0.10.3"
+version = "0.10.5"
 dependencies = [
  "criterion",
  "zlob",
@@ -721,7 +723,7 @@ dependencies = [
 
 [[package]]
 name = "fff-search"
-version = "0.10.3"
+version = "0.10.5"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3235,9 +3237,9 @@ dependencies = [
 
 [[package]]
 name = "zlob"
-version = "1.6.2"
+version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57e7ca1588981ea66f5ac470915c4cb44a47ecfb5797576f65fca1bafacedf4e"
+checksum = "f0f010d9b10495cc0037cb47cedc143c39c7fa2d59f752dca19036fd0234a210"
 dependencies = [
  "bindgen",
  "bitflags 2.11.0",
