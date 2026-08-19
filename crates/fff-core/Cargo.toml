@@ -91,10 +91,6 @@ mimalloc = { version = "0.1", optional = true, features = ["local_dynamic_tls"] 
 [target.'cfg(windows)'.dependencies]
 dunce = { workspace = true }
 
-# signal-hook only compiles on unix; we wrap the SIGSEGV handler behind cfg(unix)
-[target.'cfg(unix)'.dependencies]
-signal-hook-registry = { workspace = true }
-
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 ctor = "0.2"
@@ -102,4 +98,3 @@ proptest = { version = "1", default-features = false, features = ["std", "fork"]
 rand = { version = "0.8", features = ["small_rng"] }
 tempfile = "3.8"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-

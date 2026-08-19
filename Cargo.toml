@@ -35,7 +35,6 @@ heed = "0.22.0"
 ignore = "0.4.22"
 memmap2 = "0.9"
 mimalloc = "0.1.47"
-signal-hook-registry = "1.4"
 zlob = { version = "=1.6.3" }
 
 mlua = { version = "0.11.1", features = ["module", "luajit"] }

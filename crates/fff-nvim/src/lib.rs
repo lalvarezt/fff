@@ -1026,9 +1026,7 @@ fn create_exports(lua: &Lua) -> LuaResult<LuaTable> {
 // https://github.com/mlua-rs/mlua/issues/318
 #[mlua::lua_module(skip_memory_check)]
 fn fff_nvim(lua: &Lua) -> LuaResult<LuaTable> {
-    // Install panic hook + SIGSEGV chain handler IMMEDIATELY on module load.
-    // Without this, a crash inside fff produces a silent nvim death — neovim's
-    // own handler does not log a Rust-side backtrace.
+    // Install the Rust panic hook before exposing module functions.
     crate::log::install_panic_hook();
 
     create_exports(lua)

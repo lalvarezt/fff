@@ -24,65 +24,6 @@ fn write_crash_report(header: &str, body: &str) {
     }
 }
 
-// SIGSEGV handler writes a banner to a pre-opened fd (open(2) inside a signal
-// handler is unsafe due to path-resolution allocs). Unix only.
-#[cfg(unix)]
-mod sigsegv {
-    use std::os::fd::IntoRawFd;
-    use std::path::Path;
-    use std::sync::atomic::{AtomicI32, Ordering};
-
-    static LOG_FD: AtomicI32 = AtomicI32::new(-1);
-
-    // Must `create(true)` — this runs before init_tracing opens/creates the
-    // writer file, so an append-only open on a non-existent path silently
-    // fails, LOG_FD stays -1, and the SIGSEGV banner never reaches the log.
-    pub fn set_log_fd(path: &Path) {
-        if let Ok(file) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)
-        {
-            let prev = LOG_FD.swap(file.into_raw_fd(), Ordering::Relaxed);
-            if prev >= 0 {
-                unsafe { libc::close(prev) };
-            }
-        }
-    }
-
-    // Body must be async-signal-safe: write(2), atomic load, signal(2). Nothing else.
-    fn handler(_info: &libc::siginfo_t) {
-        const BANNER: &[u8] = b"\n=== CRASH SIGSEGV (fff) ===\n\
-            fff.nvim's rust extension hit a segfault and is about to die.\n\
-            Please file the bug at https://github.com/dmtrKovalenko/fff/issues with this banner attached.\n\
-            === CRASH END SIGSEGV ===\n";
-        unsafe {
-            libc::write(2, BANNER.as_ptr().cast(), BANNER.len());
-            let log_fd = LOG_FD.load(Ordering::Relaxed);
-            if log_fd >= 0 {
-                libc::write(log_fd, BANNER.as_ptr().cast(), BANNER.len());
-            }
-            // Reset to default so handler return → kernel kills us instead of
-            // re-running the faulting instruction in an infinite loop.
-            libc::signal(libc::SIGSEGV, libc::SIG_DFL);
-        }
-    }
-
-    pub fn install() {
-        // signal-hook-registry chains to LuaJIT's prior handler automatically.
-        unsafe {
-            let _ = signal_hook_registry::register_unchecked(libc::SIGSEGV, handler);
-        }
-    }
-}
-
-#[cfg(not(unix))]
-mod sigsegv {
-    use std::path::Path;
-    pub fn set_log_fd(_path: &Path) {}
-    pub fn install() {}
-}
-
 pub fn install_panic_hook() {
     CRASH_HOOKS.get_or_init(install_crash_hooks);
 }
@@ -115,8 +56,6 @@ fn install_crash_hooks() {
         );
         default_panic(panic_info);
     }));
-
-    sigsegv::install();
 }
 
 /// Parse a log level string into a `tracing::Level`.
@@ -229,7 +168,6 @@ pub fn init_tracing(
             .unwrap_or_default());
     }
 
-    sigsegv::set_log_fd(&session_path);
     install_panic_hook();
 
     let stem = hint.file_stem().and_then(|s| s.to_str()).unwrap_or("fff");

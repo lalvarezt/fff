@@ -755,7 +755,6 @@ dependencies = [
  "regex",
  "regex-syntax",
  "serde",
- "signal-hook-registry",
  "smallvec",
  "tempfile",
  "thiserror 2.0.18",
