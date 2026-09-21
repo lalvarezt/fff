@@ -266,6 +266,7 @@ pub unsafe extern "C" fn fff_create_instance_with(opts: *const FffCreateOptions)
             follow_symlinks: opts.version >= 2 && opts.follow_symlinks,
             enable_fs_root_scanning: opts.enable_fs_root_scanning,
             enable_home_dir_scanning: opts.enable_home_dir_scanning,
+            git_recency: Default::default(),
         },
     ) {
         return FffResult::err(&format!("Failed to init file picker: {}", e));
@@ -700,6 +701,7 @@ pub unsafe extern "C" fn fff_live_grep_ex(
         max_file_size: default_u64(max_file_size, 10 * 1024 * 1024),
         max_matches_per_file: max_matches_per_file as usize,
         smart_case,
+        casing: None,
         file_offset: file_offset as usize,
         page_limit: default_u32(page_limit, 50) as usize,
         mode: grep_mode_from_u8(mode),
@@ -822,6 +824,7 @@ pub unsafe extern "C" fn fff_multi_grep_ex(
         max_file_size: default_u64(max_file_size, 10 * 1024 * 1024),
         max_matches_per_file: max_matches_per_file as usize,
         smart_case,
+        casing: None,
         file_offset: file_offset as usize,
         page_limit: default_u32(page_limit, 50) as usize,
         mode: fff::GrepMode::PlainText, // ignored by multi_grep_search
@@ -1013,6 +1016,10 @@ pub unsafe extern "C" fn fff_restart_index(
         } else {
             (false, true, true, FFFMode::default(), false, false, false)
         };
+    let git_recency = guard
+        .as_ref()
+        .map(|p| p.git_recency_config())
+        .unwrap_or_default();
 
     drop(guard);
 
@@ -1029,6 +1036,7 @@ pub unsafe extern "C" fn fff_restart_index(
             follow_symlinks,
             enable_fs_root_scanning: fs_root,
             enable_home_dir_scanning: home_dir,
+            git_recency,
         },
     ) {
         Ok(()) => FffResult::ok_empty(),

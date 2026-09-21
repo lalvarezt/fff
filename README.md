@@ -30,6 +30,11 @@ fff is MIT and open source forever. Development is supported by these companies:
     <td align="center"><a href="https://mangoproxy.com/?utm_source=dmtrkovalenko&utm_medium=partner&utm_campaign=dmtrkovalenko_github"><img alt="Mango Proxy" src="./assets/sponsors/mango-proxy.png" width="280"></a></td>
     <td><b><a href="https://mangoproxy.com/?utm_source=dmtrkovalenko&utm_medium=partner&utm_campaign=dmtrkovalenko_github">Mango Proxy</a></b><br><sub>Fast, secure proxies for all the needs.</sub></td>
   </tr>
+  <tr>
+    <td align="center"><sub><b>🥈<br>SILVER</b></sub></td>
+    <td align="center"><a href="https://www.rapidproxy.io/?ref=fff"><img alt="RapidProxy" src="./assets/sponsors/rapidproxy.png" width="200"></a></td>
+    <td><b><a href="https://www.rapidproxy.io/?ref=fff">RapidProxy</a></b><br><sub>Residential proxies built for scraping at scale.</sub></td>
+  </tr>
 </table>
 
 <sub>Use and enjoy fff? <a href="mailto:dmitriy@iusevimbtw.com">Become a sponsor to get your features/fixes the highest priority</a>.</sub>
@@ -275,6 +280,7 @@ local r = require('fff').content_search('TODO', {
   max_file_size         = 10 * 1024 * 1024,
   max_matches_per_file  = 100,
   smart_case            = true,
+  casing             = nil,      -- 'smart' | 'sensitive' | 'insensitive'; overrides smart_case
   page_size             = 50,
   file_offset           = 0,
   time_budget_ms        = 0,
@@ -422,6 +428,12 @@ require('fff').setup({
   },
   git = {
     status_text_color = false, -- true to color filenames by git status
+    -- files that participated in the last N configured commits will get scoring bonus
+    recency = {
+      enabled = true, -- boost files from recent commits of the current branch
+      max_commits = 10, -- analyze the last N branch-specific commits
+      max_files_per_commit = 50, -- skip bulk commits touching more files than this
+    },
   },
   select = {
     -- Return winid to open the chosen file in, or nil to open in the original window
@@ -431,12 +443,17 @@ require('fff').setup({
     max_file_size = 10 * 1024 * 1024,
     max_matches_per_file = 100,
     smart_case = true,
+    casing = nil, -- 'smart' | 'sensitive' | 'insensitive'; overrides smart_case when set
     time_budget_ms = 150,
     enforce_time_budget = false, -- apply time_budget_ms even before anything matched (off = zero-match queries scan everything)
     modes = { 'plain', 'regex', 'fuzzy' },
     trim_whitespace = false,
     enable_filename_constraint = false, -- treat filename-like tokens (e.g. `score.rs`) in a grep query as a file-path filter scoping the search; off = searched as literal text
     location_format = ':%d:%d', -- printf format for line:col prefix in grep results, e.g. ':%d' for line-only
+  },
+  suggestions = {
+    enabled = true, -- when a query has no results, look them up in the other mode (files <-> grep) and show as a hint
+    grep_time_budget_ms = 50, -- hard cap for the grep hint in file mode; it is skipped until content indexing finishes
   },
   debug = {
     enabled = false, -- show the file info panel next to the preview
@@ -649,12 +666,18 @@ Native rust crate that is performing all the search. Stable and well documented.
 
 ### Build
 
+Building and installing the C library requires [cargo-c](https://crates.io/crates/cargo-c):
+
 ```bash
-# Builds only the C cdylib (fastest):
+cargo install cargo-c
+```
+
+```bash
+# Builds the C library, header, and pkg-config file:
 make build-c-lib
 
-# or directly with cargo:
-cargo build --release -p fff-c --features zlob
+# or directly with cargo-c:
+cargo cbuild -p fff-c --release --no-default-features --features zlob
 ```
 
 > The `zlob` feature (requires the [Zig](https://ziglang.org) toolchain) switches both
@@ -662,11 +685,13 @@ cargo build --release -p fff-c --features zlob
 > native parallel walker. Without it, the default build uses the pure-Rust
 > [`ignore`](https://crates.io/crates/ignore) (ripgrep) walker and `globset`.
 
-The output is a `cdylib` (`libfff_c.so` / `libfff_c.dylib` / `fff_c.dll`). The header lives at [`crates/fff-c/include/fff.h`](./crates/fff-c/include/fff.h).
+The output includes dynamic libraries (`libfff_c.so` / `libfff_c.dylib` / `fff_c.dll`) and a static library (`libfff_c.a` / `fff_c.lib`). The header lives at [`crates/fff-c/include/fff.h`](./crates/fff-c/include/fff.h).
 
 Prebuilt binaries for every version, including every commit on main, are on the [releases page](https://github.com/dmtrKovalenko/fff/releases). The same binaries also ship inside the `@ff-labs/fff-bin-*` npm packages.
 
 ### Install
+
+Then install via `make install`:
 
 ```bash
 # System-wide (needs sudo):
@@ -679,11 +704,21 @@ make install PREFIX=$HOME/.local
 make install DESTDIR=/tmp/pkgroot PREFIX=/usr
 ```
 
-Drops `libfff_c.{so,dylib,dll}` into `$(PREFIX)/lib` and the header into `$(PREFIX)/include/fff.h`. Remove with `make uninstall`, which honours the same `PREFIX` and `DESTDIR`.
+Or directly with `cargo-c`:
+
+```bash
+cargo cinstall -p fff-c --release --no-default-features --features zlob --prefix=/usr/local
+```
+
+Installs `libfff_c.{so,dylib}` and `libfff_c.a` into `$(PREFIX)/lib` on Unix. On Windows, it installs `fff_c.dll` into `$(BINDIR)` and `fff_c.lib` into `$(PREFIX)/lib`. It also installs the header into `$(PREFIX)/include/fff.h` and `fff_c.pc` into `$(PKGCONFIGDIR)`. Remove with `make uninstall`, which honours the same `PREFIX` and `DESTDIR`.
 
 Link against it after install:
 
 ```bash
+# Using pkg-config:
+cc my_app.c $(pkg-config --cflags --libs fff_c) -o my_app
+
+# Or directly:
 cc my_app.c -lfff_c -o my_app
 ```
 
