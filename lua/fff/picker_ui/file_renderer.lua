@@ -68,7 +68,6 @@ end
 --- @param line_idx number 1-based line index in buffer
 --- @param line_content string The actual line content
 function M.apply_highlights(item, ctx, item_idx, buf, ns_id, line_idx, line_content)
-  local icons = require('fff.file_picker.icons')
   local highlights = require('fff.highlights')
   local file_picker = require('fff.file_picker')
 

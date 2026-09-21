@@ -731,7 +731,7 @@ function M.open_with_callback(query, callback, opts)
 end
 
 --- Open the file picker UI
---- @param opts? {cwd?: string, title?: string, prompt?: string, max_results?: number, max_threads?: number, layout?: {width?: number|function, height?: number|function, prompt_position?: string|function, preview_position?: string|function, preview_size?: number|function}, renderer?: table, mode?: string, grep_config?: table, query?: string} Optional configuration to override defaults
+--- @param opts? {cwd?: string, title?: string, prompt?: string, max_results?: number, max_threads?: number, layout?: {width?: number|function, height?: number|function, prompt_position?: string|function, preview_position?: string|function, preview_size?: number|function, vertical_offset?: number|function}, renderer?: table, mode?: string, grep_config?: table, query?: string} Optional configuration to override defaults
 function M.open(opts)
   if M.state.active then return end
 
