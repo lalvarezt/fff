@@ -1,6 +1,6 @@
 # Neovim rendering performance
 
-The picker reuses Tree-sitter highlights for unchanged grep text and filename layouts within a render context. These changes reduce repeated work during query updates and cursor movement.
+The picker reuses Tree-sitter highlights for unchanged grep text and filename layouts within a render context. Preview lookup checks exact buffer names before resolving symlink aliases. These changes reduce work during query updates, cursor movement, and previews of loaded files.
 
 ## Measurements
 
@@ -39,8 +39,26 @@ FFF_BENCH_ITERATIONS=180 FFF_BENCH_SAMPLES=7 make bench-nvim
 FFF_BENCH_REF=5bd9943f7c81dfc32cce0b11825ecf83c023a73b FFF_BENCH_ITERATIONS=180 FFF_BENCH_SAMPLES=7 make bench-nvim
 ```
 
-`FFF_BENCH_REF` loads the baseline Tree-sitter and file renderer modules from Git without changing the working tree. Both comparisons use the same benchmark and native library.
+`FFF_BENCH_REF` loads the baseline Tree-sitter, file renderer, and preview modules from Git without changing the working tree. Both comparisons use the same benchmark and native library.
 
 The regression tests compare cached and fresh buffer text, cursor positions, selection marks, and highlights for file and grep results with both prompt positions. They also cover narrower layouts, cache eviction, language separation, cleanup, oversized lines, and parser retries.
 
-`make test-lua` passes all 75 tests. `make test-lua-snap` reports 16 mismatches among 42 cases. The same 16 failures reproduce with both modified Lua modules restored to the baseline commit, including fuzzy scores that differ from the saved references.
+`make test-lua` passes all 79 tests. `make test-lua-snap` reports 16 mismatches among 42 cases. The same 16 failures reproduce with both rendering modules restored to the baseline commit, including fuzzy scores that differ from the saved references.
+
+## Preview buffer lookup
+
+The preview first checks loaded buffer names for an exact match. If none matches, it resolves the recorded names and checks for symlink aliases. This avoids resolving every unrelated buffer path before finding an exact match. Buffer names are read on each lookup, so renames and unloads cannot leave stale cached paths.
+
+The benchmark places the target buffer after the other loaded buffers. It also measures a path with no matching buffer. Symlink-only matches still need the fallback scan.
+
+Baseline: `c2a9d32`, before the preview lookup change. These measurements use the same machine, sample count, and operation count as the rendering benchmark.
+
+| Loaded buffers | Baseline match, ms | Exact match, ms | Baseline miss, ms | New miss, ms |
+| ---: | ---: | ---: | ---: | ---: |
+| 2 | 0.0094 | 0.0034 | 0.0092 | 0.0093 |
+| 201 | 0.6139 | 0.0213 | 0.6150 | 0.6412 |
+| 1001 | 3.1238 | 0.1129 | 3.1254 | 3.2207 |
+
+An exact match with 1001 loaded buffers takes about 28 times less time. Missing-buffer lookups take 3 to 4 percent more time at the larger buffer counts. The earlier prototype measured similar miss times before and after the change.
+
+Preview regression tests cover unsaved edits, symlink requests, buffers opened through symlink aliases, and unloaded buffers.

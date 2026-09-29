@@ -4,7 +4,7 @@ vim.o.columns = 160
 vim.o.lines = 60
 
 if vim.env.FFF_BENCH_REF then
-  for _, module in ipairs({ 'fff.treesitter_hl', 'fff.picker_ui.file_renderer' }) do
+  for _, module in ipairs({ 'fff.treesitter_hl', 'fff.picker_ui.file_renderer', 'fff.file_picker.preview' }) do
     local source = vim
       .system(
         { 'git', 'show', vim.env.FFF_BENCH_REF .. ':lua/' .. module:gsub('%.', '/') .. '.lua' },
@@ -134,3 +134,35 @@ end
 ts.cleanup()
 vim.api.nvim_win_close(win, true)
 vim.api.nvim_buf_delete(buf, { force = true })
+
+local preview = require('fff.file_picker.preview')
+local lookup
+for i = 1, 30 do
+  local name, value = debug.getupvalue(preview.preview_file, i)
+  if name == 'find_existing_buffer' then
+    lookup = value
+    break
+  end
+end
+assert(lookup, 'Preview buffer lookup was not found')
+
+for _, count in ipairs({ 1, 200, 1000 }) do
+  local buffers = {}
+  for i = 1, count do
+    local buffer = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(buffer, vim.fn.tempname() .. '.lua')
+    buffers[#buffers + 1] = buffer
+  end
+  local path = root .. '/lua/fff/core.lua'
+  local target = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_name(target, path)
+  local loaded_ms = measure(function() assert(lookup(path) == target) end)
+  local missing_ms = measure(function() assert(lookup(path .. '.missing') == nil) end)
+  print(
+    string.format('preview buffers=%d loaded_lookup_ms=%.4f missing_lookup_ms=%.4f', count + 1, loaded_ms, missing_ms)
+  )
+  vim.api.nvim_buf_delete(target, { force = true })
+  for _, buffer in ipairs(buffers) do
+    vim.api.nvim_buf_delete(buffer, { force = true })
+  end
+end

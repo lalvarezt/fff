@@ -41,14 +41,20 @@ end
 
 local function find_existing_buffer(file_path)
   local abs_path = vim.fn.resolve(vim.fn.fnamemodify(file_path, ':p'))
-
-  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+  local buffers = vim.api.nvim_list_bufs()
+  local names = {}
+  for _, bufnr in ipairs(buffers) do
     if vim.api.nvim_buf_is_loaded(bufnr) then
       local buf_name = vim.api.nvim_buf_get_name(bufnr)
-      if buf_name ~= '' then
-        local buf_path = vim.fn.resolve(vim.fn.fnamemodify(buf_name, ':p'))
-        if buf_path == abs_path then return bufnr end
-      end
+      if buf_name == abs_path then return bufnr end
+      if buf_name ~= '' then names[bufnr] = buf_name end
+    end
+  end
+  for _, bufnr in ipairs(buffers) do
+    local buf_name = names[bufnr]
+    if buf_name then
+      local buf_path = vim.fn.resolve(vim.fn.fnamemodify(buf_name, ':p'))
+      if buf_path == abs_path then return bufnr end
     end
   end
   return nil
