@@ -125,6 +125,10 @@ bench-search:
 bench-grep:
 	cargo bench -p fff-search --no-default-features --features zlob --bench grep_bench -- $(BENCH_ARGS)
 
+.PHONY: bench-nvim
+bench-nvim: build-e2e
+	nvim --headless -u NONE -l scripts/bench-nvim.lua
+
 # Watcher rescan harness: asserts that editing, build output, git activity and
 # preview reads all stay on the incremental path instead of re-walking the tree.
 test-rescan:

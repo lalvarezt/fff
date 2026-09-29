@@ -51,7 +51,10 @@ function M.render_line(item, ctx, item_idx) -- luacheck: ignore item_idx
     end
   end
 
-  local line = file_name_renderer.build(item, ctx, icon).text .. frecency
+  local name_layout = file_name_renderer.build(item, ctx, icon)
+  ctx._file_name_layouts = ctx._file_name_layouts or {}
+  ctx._file_name_layouts[item] = name_layout
+  local line = name_layout.text .. frecency
 
   local padding = math.max(0, ctx.win_width - vim.fn.strdisplaywidth(line) + 5)
   table.insert(lines, line .. string.rep(' ', padding))
@@ -77,7 +80,8 @@ function M.apply_highlights(item, ctx, item_idx, buf, ns_id, line_idx, line_cont
 
   -- Get icon and paths
   local icon, icon_hl_group = icons.get_icon(item.name, item.extension, false)
-  local name_layout = file_name_renderer.build(item, ctx, icon)
+  local name_layout = ctx._file_name_layouts and ctx._file_name_layouts[item]
+  if not name_layout then name_layout = file_name_renderer.build(item, ctx, icon) end
   local filename, dir_path = name_layout.filename, name_layout.dir_path
 
   -- 1. Cursor highlight

@@ -5,6 +5,10 @@ local M = {}
 --- Per-language scratch buffer cache
 --- @type table<string, number>
 local scratch_bufs = {}
+local highlight_cache = {}
+local cache_keys = {}
+local next_cache_slot = 1
+local cache_size = 256
 
 --- Get or create a scratch buffer for a given treesitter language.
 --- The buffer is reused across calls — content is overwritten each time.
@@ -52,6 +56,10 @@ end
 function M.get_line_highlights(text, lang)
   if not text or text == '' or not lang then return {} end
 
+  local cache_key = lang .. '\0' .. text
+  local cached = highlight_cache[cache_key]
+  if cached then return cached end
+
   local buf = get_scratch_buf(lang)
 
   -- Write the single line into the scratch buffer
@@ -96,12 +104,23 @@ function M.get_line_highlights(text, lang)
     end
   end)
 
+  if #text <= 4096 then
+    local previous_key = cache_keys[next_cache_slot]
+    if previous_key then highlight_cache[previous_key] = nil end
+    cache_keys[next_cache_slot] = cache_key
+    highlight_cache[cache_key] = highlights
+    next_cache_slot = next_cache_slot % cache_size + 1
+  end
+
   return highlights
 end
 
 --- Clean up all scratch buffers.
 --- Called when the picker closes.
 function M.cleanup()
+  highlight_cache = {}
+  cache_keys = {}
+  next_cache_slot = 1
   for lang, buf in pairs(scratch_bufs) do
     if buf and vim.api.nvim_buf_is_valid(buf) then pcall(vim.api.nvim_buf_delete, buf, { force = true }) end
     scratch_bufs[lang] = nil
