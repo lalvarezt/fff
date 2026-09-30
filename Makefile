@@ -129,6 +129,10 @@ bench-grep:
 bench-nvim: build-e2e
 	nvim --headless -u NONE -l scripts/bench-nvim.lua
 
+.PHONY: bench-nvim-grep-lines
+bench-nvim-grep-lines: build-e2e
+	nvim --headless -u NONE -l scripts/bench-grep-lines.lua
+
 # Watcher rescan harness: asserts that editing, build output, git activity and
 # preview reads all stay on the incremental path instead of re-walking the tree.
 test-rescan:

@@ -113,20 +113,32 @@ local function render_match_line(item, ctx)
   local indent = ' '
   local prefix_display_w = #indent + #location + #separator
   local available = ctx.win_width - prefix_display_w - 2
-  local content_display_w = vim.fn.strdisplaywidth(content)
-
-  if content_display_w > available and available > 3 then
-    local nchars = vim.fn.strchars(content)
-    local lo, hi = 0, nchars
-    while lo < hi do
-      local mid = math.floor((lo + hi + 1) / 2)
-      if vim.fn.strdisplaywidth(vim.fn.strcharpart(content, 0, mid)) <= available - 1 then
-        lo = mid
-      else
-        hi = mid - 1
+  if available > 3 then
+    local visible_prefix = content:sub(1, available + 1)
+    if not visible_prefix:find('[^ -~]') then
+      if #visible_prefix > available then content = visible_prefix:sub(1, available - 1) .. '…' end
+    else
+      local hi = math.min(available, #content)
+      local prefix = vim.fn.strcharpart(content, 0, hi)
+      local width = vim.fn.strdisplaywidth(prefix)
+      while hi < #content and width <= available do
+        hi = math.min(hi * 2, #content)
+        prefix = vim.fn.strcharpart(content, 0, hi)
+        width = vim.fn.strdisplaywidth(prefix)
+      end
+      if width > available then
+        local lo = 0
+        while lo < hi do
+          local mid = math.floor((lo + hi + 1) / 2)
+          if vim.fn.strdisplaywidth(vim.fn.strcharpart(content, 0, mid)) <= available - 1 then
+            lo = mid
+          else
+            hi = mid - 1
+          end
+        end
+        content = vim.fn.strcharpart(content, 0, lo) .. '…'
       end
     end
-    content = vim.fn.strcharpart(content, 0, lo) .. '…'
   end
 
   local line = indent .. location .. separator .. content

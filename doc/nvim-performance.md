@@ -62,3 +62,28 @@ Baseline: `c2a9d32`, before the preview lookup change. These measurements use th
 An exact match with 1001 loaded buffers takes about 28 times less time. Missing-buffer lookups take 3 to 4 percent more time at the larger buffer counts. The earlier prototype measured similar miss times before and after the change.
 
 Preview regression tests cover unsaved edits, symlink requests, buffers opened through symlink aliases, and unloaded buffers.
+
+## Long grep lines
+
+Baseline: `687fee2`. The grep renderer previously measured the full line, counted every character, and searched across that character count to fit the window. Long minified lines made this work expensive despite the small visible area.
+
+The renderer now checks a prefix one byte longer than the available width. A printable ASCII prefix can be clipped directly. For Unicode and tabs, it grows a character prefix until it exceeds the available display width, then searches within that bound. Combining marks and wide characters keep the previous truncation behavior.
+
+Measurements use a 150-column window and the median of seven samples with 100 row renders per sample. The benchmark includes row formatting and padding. It excludes search, transfer of results from Rust, Tree-sitter highlights, and buffer updates.
+
+| Content | Bytes | Baseline, ms | Bounded clipping, ms |
+| --- | ---: | ---: | ---: |
+| ASCII | 80 | 0.001295 | 0.000774 |
+| ASCII | 1000 | 0.019974 | 0.001228 |
+| ASCII | 100000 | 1.138468 | 0.001312 |
+| ASCII | 1000000 | 11.938752 | 0.001233 |
+| Unicode | 100002 | 2.087704 | 0.051327 |
+
+ASCII clipping no longer scans the hidden part of the line. Unicode lines can still require more work when many combining characters occupy few display columns. Timings for short rows vary at the microsecond scale.
+
+```sh
+make bench-nvim-grep-lines
+FFF_BENCH_REF=687fee2 make bench-nvim-grep-lines
+```
+
+`make -o build-e2e test-lua` passes all 81 tests using the existing native library. The added tests compare output and byte offsets against the previous truncation algorithm for both prompt positions. Cases include narrow windows, long ASCII lines, wide characters, combining marks, tabs, and emoji sequences.
