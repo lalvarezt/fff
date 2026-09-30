@@ -133,6 +133,10 @@ bench-nvim: build-e2e
 bench-nvim-grep-lines: build-e2e
 	nvim --headless -u NONE -l scripts/bench-grep-lines.lua
 
+.PHONY: bench-nvim-input
+bench-nvim-input: test-setup build-e2e
+	MINI_DIR="$(MINI_DIR)" nvim --headless -u NONE -l scripts/bench-picker-input.lua
+
 # Watcher rescan harness: asserts that editing, build output, git activity and
 # preview reads all stay on the incremental path instead of re-walking the tree.
 test-rescan:

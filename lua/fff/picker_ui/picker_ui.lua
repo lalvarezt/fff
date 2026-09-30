@@ -635,6 +635,7 @@ end
 --- @param current_file_cache string|nil Current file cache
 local function open_ui_with_state(query, results, location, merged_config, current_file_cache)
   M.state.config = merged_config
+  local was_scanning = file_picker.get_scan_progress().is_scanning
 
   if not M.create_ui() then
     vim.notify('Failed to create picker UI', vim.log.levels.ERROR)
@@ -683,7 +684,7 @@ local function open_ui_with_state(query, results, location, merged_config, curre
     vim.cmd('startinsert!')
   end
 
-  M.monitor_scan_progress(0)
+  if was_scanning or results then M.monitor_scan_progress(0) end
 
   vim.api.nvim_exec_autocmds('User', { pattern = 'FFFOpen', modeline = false })
   return true

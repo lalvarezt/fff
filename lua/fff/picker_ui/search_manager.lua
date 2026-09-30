@@ -110,6 +110,13 @@ function M.update_results_sync()
     S.cursor = 1
   end
 
+  if S.input_buf and vim.api.nvim_buf_is_valid(S.input_buf) then
+    local input = vim.api.nvim_buf_get_lines(S.input_buf, 0, 2, false)
+    if #input == 1 and input[1] == S.config.prompt .. S.query then
+      S.last_search_input_buf = S.input_buf
+      S.last_search_input_tick = vim.api.nvim_buf_get_changedtick(S.input_buf)
+    end
+  end
   P.render_debounced()
 end
 

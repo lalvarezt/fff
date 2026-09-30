@@ -87,3 +87,29 @@ FFF_BENCH_REF=687fee2 make bench-nvim-grep-lines
 ```
 
 `make -o build-e2e test-lua` passes all 81 tests using the existing native library. The added tests compare output and byte offsets against the previous truncation algorithm for both prompt positions. Cases include narrow windows, long ASCII lines, wide characters, combining marks, tabs, and emoji sequences.
+
+## Opening and typing
+
+Baseline: `75b9924`.
+
+The input benchmark opens a child Neovim with a 160-column UI, waits for the repository's initial scan, and sends actual insert-mode keys. It tests an empty open, the first `m`, a single `ain` input burst, and reopening with `main` prefilled. File search and plain, regex, and fuzzy grep run with both prompt positions. Frecency, history, logging, and cross-mode suggestions are disabled for this check.
+
+| Event | Before | After |
+| --- | --- | --- |
+| Warm empty file picker | 2 searches | 1 search |
+| Warm prefilled file picker | 3 searches | 1 search |
+| Warm prefilled grep picker | 3 searches | 1 search |
+| First key | 1 search and 1 render | 1 search and 1 render |
+| Same-tick typing burst | 1 search and 1 render | 1 search and 1 render |
+
+The initial scan monitor previously searched again even when the index was already ready. Prefilling the prompt also queued an input callback after the synchronous search had processed that same buffer content. Opens now start scan monitoring only when needed, and input callbacks skip a buffer change already processed by a search. Prefetched-result opens retain their existing refresh behavior.
+
+The processed-input marker includes the buffer identity and changed tick. It is recorded only when the buffer text matches the searched query. A scan refresh using the old query therefore cannot swallow newly queued input. Tests cover that race and the final refresh after an initial scan.
+
+Grep rendering remains the largest measured typing cost. First-result rendering varied from roughly 3 to 34 ms, while search took roughly 1 to 3 ms. Tree-sitter extraction consumed most of the render time. Broad queries sometimes returned up to 200 rows, all of which currently receive syntax highlights, including rows outside the viewport. These measurements describe one repository and clean Neovim; result ordering and parser startup affect the timings.
+
+```sh
+make bench-nvim-input
+```
+
+The benchmark reports counts and time for backend searches, renders, preview updates, preview file loads, language detection, and Tree-sitter highlights. These times overlap, so they must not be added together. `make -o build-e2e test-lua` passes all 87 tests using the existing native library.

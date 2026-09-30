@@ -482,7 +482,11 @@ function M.setup_keymaps()
       vim.schedule(function()
         local ok, err = true, nil
         if S.active and S.input_buf == input_buf and vim.api.nvim_buf_is_valid(input_buf) then
-          ok, err = xpcall(P.on_input_change, debug.traceback)
+          local already_searched = S.last_search_input_buf == input_buf
+            and S.last_search_input_tick == vim.api.nvim_buf_get_changedtick(input_buf)
+          if not already_searched then
+            ok, err = xpcall(P.on_input_change, debug.traceback)
+          end
         end
 
         input_change_pending = false
