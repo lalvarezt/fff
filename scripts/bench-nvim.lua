@@ -4,7 +4,14 @@ vim.o.columns = 160
 vim.o.lines = 60
 
 if vim.env.FFF_BENCH_REF then
-  for _, module in ipairs({ 'fff.treesitter_hl', 'fff.picker_ui.file_renderer', 'fff.file_picker.preview' }) do
+  for _, module in ipairs({
+    'fff.treesitter_hl',
+    'fff.picker_ui.file_renderer',
+    'fff.picker_ui.grep_renderer',
+    'fff.picker_ui.list_renderer',
+    'fff.picker_ui.renderer',
+    'fff.file_picker.preview',
+  }) do
     local source = vim
       .system(
         { 'git', 'show', vim.env.FFF_BENCH_REF .. ':lua/' .. module:gsub('%.', '/') .. '.lua' },
@@ -26,6 +33,7 @@ local iterations = tonumber(vim.env.FFF_BENCH_ITERATIONS) or 300
 local samples = tonumber(vim.env.FFF_BENCH_SAMPLES) or 7
 local buf = vim.api.nvim_create_buf(false, true)
 local win = vim.api.nvim_open_win(buf, false, { relative = 'editor', row = 0, col = 0, width = 150, height = 50 })
+vim.api.nvim_set_option_value('wrap', false, { win = win })
 local ns = vim.api.nvim_create_namespace('fff-bench')
 local lang = ts.lang_from_filename('main.lua')
 assert(lang, 'The Lua Tree-sitter parser is required')
@@ -51,7 +59,7 @@ end
 
 local function context(mode, position)
   local items = {}
-  for i = 1, 40 do
+  for i = 1, tonumber(vim.env.FFF_BENCH_ROWS) or 40 do
     items[i] = {
       name = 'main.lua',
       extension = 'lua',

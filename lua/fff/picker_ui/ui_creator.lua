@@ -269,6 +269,15 @@ function M.setup_windows()
   end
 
   local picker_group = vim.api.nvim_create_augroup('fff_picker_focus', { clear = true })
+  local list_win, list_buf = S.list_win, S.list_buf
+  vim.api.nvim_create_autocmd('WinScrolled', {
+    group = picker_group,
+    pattern = tostring(list_win),
+    callback = function()
+      if S.list_win ~= list_win or S.list_buf ~= list_buf then return end
+      require('fff.picker_ui.renderer').highlight_visible_syntax()
+    end,
+  })
 
   local function is_picker_window(win)
     if not win or not vim.api.nvim_win_is_valid(win) then return false end

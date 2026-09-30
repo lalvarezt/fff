@@ -8,6 +8,15 @@ child.lua(string.format(
   [[
   vim.opt.runtimepath:prepend(%q)
   vim.cmd('cd ' .. vim.fn.fnameescape(%q))
+  if vim.env.FFF_BENCH_REF then
+    for _, module in ipairs({ 'fff.picker_ui.grep_renderer', 'fff.picker_ui.list_renderer',
+      'fff.picker_ui.renderer', 'fff.picker_ui.ui_creator' }) do
+      local source = vim.system({ 'git', 'show', vim.env.FFF_BENCH_REF .. ':lua/' ..
+        module:gsub('%%.', '/') .. '.lua' }, { text = true }):wait()
+      assert(source.code == 0, source.stderr)
+      package.preload[module] = assert(loadstring(source.stdout))
+    end
+  end
   vim.g.fff = { logging = { enabled = false }, suggestions = { enabled = false },
     frecency = { enabled = false }, history = { enabled = false } }
   require('fff.core').ensure_initialized()

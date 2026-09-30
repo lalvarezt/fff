@@ -274,6 +274,7 @@ function M.render_list()
   S.line_to_item = line_to_item
 
   if ctx.prompt_position == 'bottom' then M.scroll_to_bottom() end
+  M.highlight_visible_syntax()
 
   finalize_render(separator_line, ctx)
 end
@@ -311,6 +312,7 @@ local function rerender_cursor_rows(old_cursor, new_cursor)
   end
 
   vim.api.nvim_win_set_cursor(S.list_win, { new_lines.last, 0 })
+  M.highlight_visible_syntax()
   return true
 end
 
@@ -319,6 +321,12 @@ function M.render_after_cursor_move(old_cursor)
   if old_cursor and rerender_cursor_rows(old_cursor, S.cursor) then return true end
   M.render_list()
   return true
+end
+
+function M.highlight_visible_syntax()
+  if not P.state.active or not S.last_render_ctx then return end
+  if not S.list_win or not vim.api.nvim_win_is_valid(S.list_win) then return end
+  list_renderer.highlight_visible_syntax(S.last_render_ctx, S.item_to_lines, S.list_buf, S.list_win, S.ns_id)
 end
 
 return M

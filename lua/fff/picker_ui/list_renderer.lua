@@ -232,6 +232,13 @@ function M.render(ctx, list_buf, list_win, ns_id)
   separator_line = shifted_separator_line
   update_buffer_and_cursor(lines, item_to_lines, ctx, list_buf, list_win, ns_id)
 
+  if ctx.renderer and ctx.renderer.apply_syntax_highlights then
+    ctx._syntax_highlighted = {}
+    ctx._syntax_view = vim.api.nvim_win_call(
+      list_win,
+      function() return { first = vim.fn.line('w0'), last = vim.fn.line('w$') } end
+    )
+  end
   if #ctx.items > 0 then apply_all_highlights(lines, item_to_lines, ctx, list_buf, ns_id) end
 
   -- Highlight the suggestion header lines (if present)
@@ -253,6 +260,35 @@ function M.render(ctx, list_buf, list_win, ns_id)
   end
 
   return item_to_lines, separator_line
+end
+
+---@param ctx table
+---@param item_to_lines table<number, ItemLineMapping>
+---@param list_buf number
+---@param list_win number
+---@param ns_id number
+function M.highlight_visible_syntax(ctx, item_to_lines, list_buf, list_win, ns_id)
+  if not ctx.renderer or not ctx.renderer.apply_syntax_highlights then return end
+  ctx._syntax_highlighted = ctx._syntax_highlighted or {}
+  ctx._syntax_view = vim.api.nvim_win_call(
+    list_win,
+    function() return { first = vim.fn.line('w0'), last = vim.fn.line('w$') } end
+  )
+  local view = ctx._syntax_view
+  local lines = vim.api.nvim_buf_get_lines(list_buf, view.first - 1, view.last, false)
+  for i, mapping in pairs(item_to_lines) do
+    if mapping.last >= view.first and mapping.last <= view.last and not ctx._syntax_highlighted[i] then
+      ctx.renderer.apply_syntax_highlights(
+        ctx.items[i],
+        ctx,
+        i,
+        list_buf,
+        ns_id,
+        mapping.last,
+        lines[mapping.last - view.first + 1]
+      )
+    end
+  end
 end
 
 return M

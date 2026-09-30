@@ -205,28 +205,6 @@ local function apply_match_highlights(item, item_idx, buf, ns_id, row, line_cont
         priority = 150,
       })
     end
-  elseif item._trimmed_content and item.name then
-    ctx._ts_lang_cache = ctx._ts_lang_cache or {}
-    local lang = ctx._ts_lang_cache[item.name]
-    if lang == nil then
-      lang = tresitter_highlight.lang_from_filename(item.name) or false
-      ctx._ts_lang_cache[item.name] = lang
-    end
-
-    if lang then
-      local highlights = tresitter_highlight.get_line_highlights(item._trimmed_content, lang)
-      for _, hl in ipairs(highlights) do
-        local hl_start = content_start + hl.col
-        local hl_end = content_start + hl.end_col
-        if hl_start < #line_content and hl_end <= #line_content then
-          pcall(vim.api.nvim_buf_set_extmark, buf, ns_id, row, hl_start, {
-            end_col = hl_end,
-            hl_group = hl.hl_group,
-            priority = 120,
-          })
-        end
-      end
-    end
   end
 
   if item.match_ranges and not item.is_binary_content then
@@ -301,9 +279,46 @@ function M.apply_highlights(item, ctx, item_idx, buf, ns_id, line_idx, line_cont
   local row = line_idx - 1
 
   apply_match_highlights(item, item_idx, buf, ns_id, row, line_content, ctx)
+  if ctx._syntax_highlighted then ctx._syntax_highlighted[item_idx] = nil end
+  M.apply_syntax_highlights(item, ctx, item_idx, buf, ns_id, line_idx, line_content)
 
   ---@diagnostic disable-next-line: undefined-field
   if item._has_group_header then apply_group_header_highlights(item, ctx, buf, ns_id, row - 1) end
+end
+
+---@param item FileItem
+---@param ctx table
+---@param item_idx number
+---@param buf number
+---@param ns_id number
+---@param line_idx number
+---@param line_content string
+function M.apply_syntax_highlights(item, ctx, item_idx, buf, ns_id, line_idx, line_content)
+  local view = ctx._syntax_view
+  if view and (line_idx < view.first or line_idx > view.last) then return end
+  if ctx._syntax_highlighted then ctx._syntax_highlighted[item_idx] = true end
+  if item.is_binary_content or not item._trimmed_content or not item.name then return end
+
+  ctx._ts_lang_cache = ctx._ts_lang_cache or {}
+  local lang = ctx._ts_lang_cache[item.name]
+  if lang == nil then
+    lang = tresitter_highlight.lang_from_filename(item.name) or false
+    ctx._ts_lang_cache[item.name] = lang
+  end
+  if not lang then return end
+
+  local content_start = (item._match_indent or 1) + #format_location(item, ctx) + 2
+  for _, hl in ipairs(tresitter_highlight.get_line_highlights(item._trimmed_content, lang)) do
+    local hl_start = content_start + hl.col
+    local hl_end = content_start + hl.end_col
+    if hl_start < #line_content and hl_end <= #line_content then
+      pcall(vim.api.nvim_buf_set_extmark, buf, ns_id, line_idx - 1, hl_start, {
+        end_col = hl_end,
+        hl_group = hl.hl_group,
+        priority = 120,
+      })
+    end
+  end
 end
 
 return M

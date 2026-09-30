@@ -106,10 +106,38 @@ The initial scan monitor previously searched again even when the index was alrea
 
 The processed-input marker includes the buffer identity and changed tick. It is recorded only when the buffer text matches the searched query. A scan refresh using the old query therefore cannot swallow newly queued input. Tests cover that race and the final refresh after an initial scan.
 
-Grep rendering remains the largest measured typing cost. First-result rendering varied from roughly 3 to 34 ms, while search took roughly 1 to 3 ms. Tree-sitter extraction consumed most of the render time. Broad queries sometimes returned up to 200 rows, all of which currently receive syntax highlights, including rows outside the viewport. These measurements describe one repository and clean Neovim; result ordering and parser startup affect the timings.
+Grep rendering was the largest measured typing cost in this check. First-result rendering varied from roughly 3 to 34 ms, while search took roughly 1 to 3 ms. Tree-sitter extraction consumed most of the render time. Broad queries sometimes returned up to 200 rows, all of which received syntax highlights, including rows outside the viewport. These measurements describe one repository and clean Neovim; result ordering and parser startup affect the timings.
 
 ```sh
 make bench-nvim-input
 ```
 
 The benchmark reports counts and time for backend searches, renders, preview updates, preview file loads, language detection, and Tree-sitter highlights. These times overlap, so they must not be added together. `make -o build-e2e test-lua` passes all 87 tests using the existing native library.
+
+## Visible syntax highlights
+
+Baseline: `e752260`.
+
+Grep results now receive Tree-sitter highlights when their content row is visible. Cursor navigation refreshes the new viewport immediately, and `WinScrolled` handles other viewport changes. Each render tracks highlighted items so repeated scroll events do not duplicate marks. A full redraw resets this tracking. Query matches, selection signs, file headers, and result text still render for the whole list.
+
+The render benchmark uses 200 Lua matches with 50 file headers in a 150-column, 50-row window. Wrapping is disabled to match the actual picker. Values are medians of seven samples with 60 renders per sample. Fresh renders change every snippet between iterations to avoid the highlight cache; warm renders reuse the same snippets.
+
+| Prompt | Fresh before, ms | Fresh after, ms | Warm before, ms | Warm after, ms |
+| --- | ---: | ---: | ---: | ---: |
+| Top | 20.8707 | 5.2231 | 2.8082 | 1.4001 |
+| Bottom | 20.8340 | 5.2856 | 2.8383 | 1.3934 |
+
+Fresh renders take about 75 percent less time, and warm renders about 50 percent less. File rendering and movement between already visible rows remain similar. Scrolling into unseen rows incurs their syntax parsing cost as they become visible. The change preserves the existing parser queries, highlight priorities, and byte offsets.
+
+The actual-input benchmark reduced first-key highlight calls from 51 to 33 with a top prompt and 34 with a bottom prompt across plain, regex, and fuzzy grep. Render times ranged from 6.4–6.9 ms before to 3.5–6.3 ms after in that run. The benefit is smaller when most results already fit in the window; parser startup and result ordering still affect timings. These are render timings, not end-to-end input latency measurements.
+
+```sh
+FFF_BENCH_ROWS=200 FFF_BENCH_ITERATIONS=60 FFF_BENCH_SAMPLES=7 make -o build-e2e bench-nvim
+FFF_BENCH_REF=e752260 FFF_BENCH_ROWS=200 FFF_BENCH_ITERATIONS=60 FFF_BENCH_SAMPLES=7 make -o build-e2e bench-nvim
+FFF_BENCH_REF=e752260 make -o build-e2e bench-nvim-input
+make -o build-e2e bench-nvim-input
+```
+
+Regression tests compare visible syntax spans against the Lua parser, including Unicode byte offsets. They cover both prompt positions, file grouping, navigation, scrolling, repeated refreshes, selection and match highlights, resizing, and redraws. Child Neovim tests verify native `WinScrolled` events and reopening. The render comparison test now sorts extmark detail keys to avoid failures caused by JSON object ordering.
+
+The requested `~/dev/lightsource` checkout is absent on this machine. Interactive checks use this repository in the 160-column `fff-input-check` tmux session. `make -o build-e2e test-lua` passes all 95 tests with the existing native library.

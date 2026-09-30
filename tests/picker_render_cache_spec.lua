@@ -9,7 +9,12 @@ local function extmarks()
   local marks = vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })
   local normalized = {}
   for _, mark in ipairs(marks) do
-    normalized[#normalized + 1] = vim.json.encode({ mark[2], mark[3], mark[4] })
+    local details = {}
+    for key, value in pairs(mark[4]) do
+      details[#details + 1] = { key, value }
+    end
+    table.sort(details, function(a, b) return a[1] < b[1] end)
+    normalized[#normalized + 1] = vim.json.encode({ mark[2], mark[3], details })
   end
   table.sort(normalized)
   return normalized
@@ -57,6 +62,7 @@ describe('cached picker rendering', function()
     vim.o.lines = 40
     buf = vim.api.nvim_create_buf(false, true)
     win = vim.api.nvim_open_win(buf, false, { relative = 'editor', row = 0, col = 0, width = 140, height = 10 })
+    vim.api.nvim_set_option_value('wrap', false, { win = win })
     ns = vim.api.nvim_create_namespace('fff-render-cache-test')
     renderer.init({ state = { active = true } })
     state.list_buf, state.list_win, state.ns_id = buf, win, ns
