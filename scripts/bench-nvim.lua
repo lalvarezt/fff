@@ -1,27 +1,7 @@
-local root = vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':p:h:h')
+local root = vim.env.FFF_BENCH_ROOT or vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':p:h:h')
 vim.opt.runtimepath:prepend(root)
 vim.o.columns = 160
 vim.o.lines = 60
-
-if vim.env.FFF_BENCH_REF then
-  for _, module in ipairs({
-    'fff.treesitter_hl',
-    'fff.picker_ui.file_renderer',
-    'fff.picker_ui.grep_renderer',
-    'fff.picker_ui.list_renderer',
-    'fff.picker_ui.renderer',
-    'fff.file_picker.preview',
-  }) do
-    local source = vim
-      .system(
-        { 'git', 'show', vim.env.FFF_BENCH_REF .. ':lua/' .. module:gsub('%.', '/') .. '.lua' },
-        { cwd = root, text = true }
-      )
-      :wait()
-    assert(source.code == 0, source.stderr)
-    package.preload[module] = assert(loadstring(source.stdout))
-  end
-end
 
 local list_renderer = require('fff.picker_ui.list_renderer')
 local renderer = require('fff.picker_ui.renderer')
@@ -39,6 +19,9 @@ local lang = ts.lang_from_filename('main.lua')
 assert(lang, 'The Lua Tree-sitter parser is required')
 renderer.init({ state = { active = true } })
 state.list_buf, state.list_win, state.ns_id = buf, win, ns
+state.layout = { show_scrollbar = false }
+
+if vim.env.FFF_BENCH_PROFILE then require('jit.p').start('fi1', vim.env.FFF_BENCH_PROFILE) end
 
 local function measure(fn)
   for _ = 1, 20 do
@@ -174,3 +157,5 @@ for _, count in ipairs({ 1, 200, 1000 }) do
     vim.api.nvim_buf_delete(buffer, { force = true })
   end
 end
+
+if vim.env.FFF_BENCH_PROFILE then require('jit.p').stop() end

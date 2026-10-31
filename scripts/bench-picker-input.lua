@@ -1,5 +1,6 @@
-local root = vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':p:h:h')
-vim.opt.runtimepath:prepend(vim.env.MINI_DIR or (root .. '/../mini.nvim'))
+local script_root = vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':p:h:h')
+local root = vim.env.FFF_BENCH_ROOT or script_root
+vim.opt.runtimepath:prepend(vim.env.MINI_DIR or (script_root .. '/../mini.nvim'))
 local child = require('mini.test').new_child_neovim()
 child.start({ '--clean', '-n', '-i', 'NONE' })
 child.o.columns = 160
@@ -8,15 +9,6 @@ child.lua(string.format(
   [[
   vim.opt.runtimepath:prepend(%q)
   vim.cmd('cd ' .. vim.fn.fnameescape(%q))
-  if vim.env.FFF_BENCH_REF then
-    for _, module in ipairs({ 'fff.picker_ui.grep_renderer', 'fff.picker_ui.list_renderer',
-      'fff.picker_ui.renderer', 'fff.picker_ui.ui_creator' }) do
-      local source = vim.system({ 'git', 'show', vim.env.FFF_BENCH_REF .. ':lua/' ..
-        module:gsub('%%.', '/') .. '.lua' }, { text = true }):wait()
-      assert(source.code == 0, source.stderr)
-      package.preload[module] = assert(loadstring(source.stdout))
-    end
-  end
   vim.g.fff = { logging = { enabled = false }, suggestions = { enabled = false },
     frecency = { enabled = false }, history = { enabled = false } }
   require('fff.core').ensure_initialized()
@@ -44,7 +36,7 @@ child.lua(string.format(
   instrument(require('fff.treesitter_hl'), 'get_line_highlights', 'ts_highlights')
 ]],
   root,
-  root
+  vim.env.FFF_BENCH_PATH or script_root
 ))
 
 local function snapshot(label)

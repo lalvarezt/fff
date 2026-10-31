@@ -1060,6 +1060,21 @@ Use Cargo for the C library, Node and Bun bindings, and Python extension. Blaze 
 
 Set `BLAZE` to use another launcher path or `BLAZE_BACKEND=llvm` to use Blaze's LLVM backend. The workspace runs the `libz-sys` and `zlob` build scripts outside Blaze's sandbox so they can discover system zlib and use Zig's cache.
 
+### Measure Neovim performance
+
+Use optimized Cargo builds for measurements. `FFF_BENCH_ROOT` selects a complete checkout with its matching native library. `FFF_BENCH_PATH` selects the repository searched by the input benchmark. Both default to this checkout.
+
+```sh
+make build-e2e
+FFF_BENCH_ROWS=200 nvim --headless -u NONE -l scripts/bench-nvim.lua
+FFF_BENCH_ROOT=/tmp/fff-base FFF_BENCH_PATH=/path/to/workload nvim --headless -u NONE -l scripts/bench-picker-input.lua
+nvim --headless -u NONE -l scripts/bench-grep-lines.lua
+```
+
+The render benchmark reports median CPU time per operation across seven samples. Set `FFF_BENCH_ITERATIONS` and `FFF_BENCH_SAMPLES` to adjust its duration. Set `FFF_BENCH_PROFILE=/tmp/fff-lua.profile` to collect a LuaJIT sampling profile during that benchmark.
+
+The input benchmark drives a child Neovim through file search and plain, regex, and fuzzy grep with both prompt positions. Its timings cover instrumented search, rendering, and preview calls, rather than total key-to-screen latency. Never compare versions by replacing individual Lua modules: that mixes implementations and can hide integration costs.
+
 Run `make bench-definition` for Criterion benchmarks of Rust, JavaScript, and Python declarations and references. Each case measures classification through `FileItem::is_definition_match`, with match ranges prepared before timing. The `mixed_256` cases classify shuffled batches of 256 lines; their throughput is reported in lines per second. File indexing, I/O, and finding query matches are excluded.
 
 The `identifier_*_bytes` cases measure names of 16, 32, and 96 bytes. The `indented_*_bytes` cases measure the 255/256/257-byte boundary and rejection of 1 KiB and 16 KiB lines.

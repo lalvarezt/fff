@@ -1,13 +1,6 @@
-local root = vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':p:h:h')
+local root = vim.env.FFF_BENCH_ROOT or vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':p:h:h')
 vim.opt.runtimepath:prepend(root)
 vim.o.columns = 160
-if vim.env.FFF_BENCH_REF then
-  local source = vim
-    .system({ 'git', 'show', vim.env.FFF_BENCH_REF .. ':lua/fff/picker_ui/grep_renderer.lua' }, { cwd = root, text = true })
-    :wait()
-  assert(source.code == 0, source.stderr)
-  package.preload['fff.picker_ui.grep_renderer'] = assert(loadstring(source.stdout))
-end
 local grep = require('fff.picker_ui.grep_renderer')
 local item = { name = 'main.lua', relative_path = 'main.lua', line_number = 1, col = 0 }
 local ctx = { config = require('fff.conf').get(), win_width = 150, iter_start = 1, grep_last_file = 'main.lua' }
