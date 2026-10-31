@@ -660,6 +660,7 @@ local function open_ui_with_state(query, results, location, merged_config, curre
   M.state.active = true
   M.state.current_file_cache = current_file_cache
   file_picker.resume_git_status()
+  local git_status_refreshing = file_picker.is_git_status_refreshing()
 
   -- Set up initial state
   if query then
@@ -700,7 +701,11 @@ local function open_ui_with_state(query, results, location, merged_config, curre
     vim.cmd('startinsert!')
   end
 
-  if was_scanning or results then M.monitor_scan_progress(0) end
+  if was_scanning or results then
+    M.monitor_scan_progress(0)
+  elseif git_status_refreshing then
+    M.monitor_git_status_refresh()
+  end
 
   vim.api.nvim_exec_autocmds('User', { pattern = 'FFFOpen', modeline = false })
   return true

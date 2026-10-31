@@ -11,7 +11,8 @@ describe('grep syntax scroll events', function()
       vim.opt.runtimepath:prepend(%q)
       vim.cmd('cd ' .. vim.fn.fnameescape(%q))
       vim.g.fff = { logging = { enabled = false }, suggestions = { enabled = false },
-        frecency = { enabled = false }, history = { enabled = false } }
+        frecency = { enabled = false }, history = { enabled = false },
+        git = { status_updates = 'manual' } }
       require('fff.core').ensure_initialized()
       require('fff.rust').wait_for_initial_scan(8000)
       _G.assert_visible_syntax = function()

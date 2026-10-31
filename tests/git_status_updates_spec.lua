@@ -71,44 +71,57 @@ describe('git status updates', function()
     assert.are.equal('modified', status_of('tracked.lua'))
   end)
 
-  it('picker refreshes on open, reruns the query and pauses on close', function()
-    local picker_ui = require('fff.picker_ui.picker_ui')
-    local core = require('fff.core')
-    assert.are.equal('while_open', core.git_status_updates())
+  for _, position in ipairs({ 'top', 'bottom' }) do
+    it('picker refreshes on open and pauses on close with a ' .. position .. ' prompt', function()
+      local picker_ui = require('fff.picker_ui.picker_ui')
+      local core = require('fff.core')
+      assert.are.equal('while_open', core.git_status_updates())
 
-    -- startup path: the picker is created paused since the UI is closed
-    core.mark_file_picker_uninitialized()
-    core.ensure_initialized()
-    assert.is_true(core.change_indexing_directory(tmp))
-    assert.is_true(vim.wait(15000, function()
-      local ok, health = pcall(fff_rust.health_check, tmp)
-      return ok and health.file_picker.base_path and norm(health.file_picker.base_path) == tmp
-    end, 20))
-    fff_rust.wait_for_initial_scan(30000)
-    assert.are.equal('clean', status_of('untracked.lua'))
+      -- startup path: the picker is created paused since the UI is closed
+      core.mark_file_picker_uninitialized()
+      core.ensure_initialized()
+      assert.is_true(core.change_indexing_directory(tmp))
+      assert.is_true(vim.wait(15000, function()
+        local ok, health = pcall(fff_rust.health_check, tmp)
+        return ok and health.file_picker.base_path and norm(health.file_picker.base_path) == tmp
+      end, 20))
+      fff_rust.wait_for_initial_scan(30000)
+      assert.are.equal('clean', status_of('untracked.lua'))
 
-    local function shown_status(name)
-      for _, item in ipairs(picker_ui.state.items or {}) do
-        if item.name == name then return item.git_status end
+      local function shown_status(name)
+        for _, item in ipairs(picker_ui.state.items or {}) do
+          if item.name == name then return item.git_status end
+        end
       end
-    end
 
-    picker_ui.open({ cwd = tmp })
-    assert.is_true(
-      vim.wait(15000, function() return shown_status('untracked.lua') == 'untracked' end, 20),
-      'picker never re-rendered with the refreshed git status'
-    )
+      picker_ui.open({ cwd = tmp, layout = { prompt_position = position } })
+      assert.is_true(
+        vim.wait(15000, function() return shown_status('untracked.lua') == 'untracked' end, 20),
+        'picker never re-rendered with the refreshed git status'
+      )
 
-    picker_ui.close()
-    write('tracked.lua', 'return 2')
-    vim.wait(500, function() return false end)
-    assert.is_true(wait_git_status_applied())
-    assert.are.equal('clean', status_of('tracked.lua'))
+      picker_ui.close()
+      write('tracked.lua', 'return 2')
+      vim.wait(500, function() return false end)
+      assert.is_true(wait_git_status_applied())
+      assert.are.equal('clean', status_of('tracked.lua'))
 
-    picker_ui.open({ cwd = tmp })
-    assert.is_true(
-      vim.wait(15000, function() return shown_status('tracked.lua') == 'modified' end, 20),
-      'reopened picker never showed the change made while closed'
-    )
-  end)
+      picker_ui.open({ cwd = tmp, layout = { prompt_position = position } })
+      vim.api.nvim_buf_set_lines(
+        picker_ui.state.input_buf,
+        0,
+        -1,
+        false,
+        { picker_ui.state.config.prompt .. 'tracked' }
+      )
+      assert.is_true(
+        vim.wait(
+          15000,
+          function() return picker_ui.state.query == 'tracked' and shown_status('tracked.lua') == 'modified' end,
+          20
+        ),
+        'reopened picker never showed the change made while closed'
+      )
+    end)
+  end
 end)

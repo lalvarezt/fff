@@ -12,7 +12,11 @@ describe('picker opening and input searches', function()
       suggestions = { enabled = false },
       frecency = { enabled = false },
       history = { enabled = false },
+      git = { status_updates = 'manual' },
     }
+    local git = require('fff.conf').get().git
+    local git_status_updates = git.status_updates
+    git.status_updates = 'manual'
     require('fff.core').ensure_initialized()
     require('fff.rust').wait_for_initial_scan(8000)
     counts = { files = 0, grep = 0 }
@@ -20,6 +24,7 @@ describe('picker opening and input searches', function()
       files = file_picker.search_files_paginated,
       grep = fuzzy.live_grep,
       progress = file_picker.get_scan_progress,
+      git_status_updates = git_status_updates,
     }
     file_picker.search_files_paginated = function(...)
       counts.files = counts.files + 1
@@ -36,6 +41,7 @@ describe('picker opening and input searches', function()
     file_picker.search_files_paginated = originals.files
     fuzzy.live_grep = originals.grep
     file_picker.get_scan_progress = originals.progress
+    require('fff.conf').get().git.status_updates = originals.git_status_updates
     vim.wait(20)
   end)
 
