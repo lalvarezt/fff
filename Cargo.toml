@@ -11,6 +11,12 @@ members = [
 
 resolver = "2"
 
+[workspace.metadata.blaze]
+version = "0.20261030.1"
+
+[workspace.metadata.blaze.sandbox]
+unsandboxed-build-scripts = ["libz-sys", "zlob"]
+
 [workspace.lints.clippy]
 module_inception = "allow"
 

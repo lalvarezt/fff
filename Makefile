@@ -23,6 +23,23 @@ SHELL := bash
 
 all: format test lint
 
+.PHONY: dev dev-mcp dev-test dev-status dev-stop
+
+dev:
+	bash scripts/blaze.sh build --release --lib -p fff-nvim --no-default-features --features zlob
+
+dev-mcp:
+	bash scripts/blaze.sh build --release -p fff-mcp --no-default-features --features zlob
+
+dev-test:
+	bash scripts/blaze.sh test -p fff-search --lib --no-default-features --features zlob -- $(TEST_ARGS)
+
+dev-status:
+	bash scripts/blaze.sh status
+
+dev-stop:
+	bash scripts/blaze.sh stop
+
 SYNC_API_SRC := packages/shared/fff-api.ts
 SYNC_API_TARGETS := packages/fff-node/src/fff-api.ts packages/fff-bun/src/fff-api.ts
 SYNC_API_BANNER := // ----------------------------------------------------------------------------\n// GENERATED FILE - DO NOT EDIT.\n// Copied from: ${SYNC_API_SRC}\n// Run make sync-js-api from the repo root to regenerate.\n// ----------------------------------------------------------------------------\n\n

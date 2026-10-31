@@ -1038,6 +1038,28 @@ If you are running one grep from a terminal, `rg` is still the right tool. If yo
 
 Bug reports and pull requests welcome. Agentic coding tools are welcome to be used, but human review is mandatory.
 
+### Iterate with Blaze
+
+Install [Blaze](https://github.com/indexable-inc/blaze/blob/main/docs/install.md) with its official installer, using `--version 0.20261030.1`. This is a canary release, pinned in `Cargo.toml`. Blaze downloads its own Rust toolchain once; Cargo continues to use `rust-toolchain.toml`.
+
+The `zlob` backend requires Zig 0.16.0. If you use [zvm](https://github.com/tristanisham/zvm), install it with `zvm install 0.16.0`. The development commands select that version for their process. Without zvm, put Zig 0.16.0 on `PATH`.
+
+```sh
+make dev                         # Build the Neovim library
+make dev-mcp                     # Build the MCP server
+make dev-test TEST_ARGS=definition # Run matching Rust core unit tests
+make dev-status                  # Inspect the compiler daemon
+make dev-stop                    # Release the daemon's memory
+```
+
+Repeat `make dev` after Rust edits. These commands use Blaze's Cranelift backend for iteration and write to the existing artifact paths, including `target/release`. Restart Neovim, the MCP server, or the SDK host after rebuilding its native code. An already running host keeps its loaded library.
+
+The artifacts from these commands are development builds, even though they occupy the release paths. Use `make build` or `make build-e2e` for Cargo's optimized artifacts and performance measurements. Run `make test-rust` for Cargo's full Rust test targets; `make dev-test` runs core unit tests only.
+
+Use Cargo for the C library, Node and Bun bindings, and Python extension. Blaze `0.20261030.1` fails while reading `fff-c`'s static archive, so `make dev` builds only the Neovim library.
+
+Set `BLAZE` to use another launcher path or `BLAZE_BACKEND=llvm` to use Blaze's LLVM backend. The workspace runs the `libz-sys` and `zlob` build scripts outside Blaze's sandbox so they can discover system zlib and use Zig's cache.
+
 Run `make bench-definition` for Criterion benchmarks of Rust, JavaScript, and Python declarations and references. Each case measures classification through `FileItem::is_definition_match`, with match ranges prepared before timing. The `mixed_256` cases classify shuffled batches of 256 lines; their throughput is reported in lines per second. File indexing, I/O, and finding query matches are excluded.
 
 The `identifier_*_bytes` cases measure names of 16, 32, and 96 bytes. The `indented_*_bytes` cases measure the 255/256/257-byte boundary and rejection of 1 KiB and 16 KiB lines.
