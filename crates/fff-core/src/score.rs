@@ -70,14 +70,6 @@ fn match_fuzzy_parts(
         return vec![];
     }
 
-    let threads_for = |len: usize| {
-        if max_threads == 0 {
-            0
-        } else {
-            max_threads.min(len.div_ceil(2048)).max(1)
-        }
-    };
-
     let reverse_pair = valid_parts.len() == 2 && valid_parts[1].len() > valid_parts[0].len();
     let first_part = usize::from(reverse_pair);
     let mut first_options = *options;
@@ -95,7 +87,7 @@ fn match_fuzzy_parts(
             resolve_file_chunks(working_files.index(index as usize), arena, buf)
         },
         &first_options,
-        threads_for(working_files.len()),
+        max_threads,
     );
 
     if valid_parts.len() == 1 {
@@ -125,7 +117,7 @@ fn match_fuzzy_parts(
                 resolve_file_chunks(file, arena, buf)
             },
             &part_options,
-            threads_for(survivors.len()),
+            max_threads,
         );
 
         if sub_matches.is_empty() {

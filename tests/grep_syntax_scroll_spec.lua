@@ -76,7 +76,7 @@ describe('grep syntax scroll events', function()
       ]],
         position == 'top' and '60' or 'math.max(1, total - 90)'
       ))
-      child.lua('vim.wait(30); assert(scroll_events > 0); assert_visible_syntax()')
+      child.lua('assert(vim.wait(1000, function() return scroll_events > 0 end, 10)); assert_visible_syntax()')
       child.lua([[
         local picker = require('fff.picker_ui.picker_ui')
         picker.close()
