@@ -6,13 +6,13 @@ use rayon::prelude::*;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use super::sink::{classify_definition, strip_line_terminators, truncate_display_bytes};
+use super::sink::{strip_line_terminators, truncate_display_bytes};
 use super::types::{GrepMatch, GrepResult, GrepSearchOptions};
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn fuzzy_grep_search<'a>(
     grep_text: &str,
-    files_to_search: &[&'a FileItem],
+    files_to_search: &mut super::prefilter::RankedFiles<'a>,
     options: &GrepSearchOptions,
     total_files: usize,
     filtered_file_count: usize,
@@ -136,7 +136,7 @@ pub(super) fn fuzzy_grep_search<'a>(
 
     while chunk_start < files_to_search.len() {
         let chunk_end = (chunk_start + chunk_size).min(files_to_search.len());
-        let chunk = &files_to_search[chunk_start..chunk_end];
+        let chunk = files_to_search.batch(chunk_start..chunk_end);
         let chunk_offset = chunk_start;
         chunk_start = chunk_end;
         chunk_size = (chunk_size * growth).min(max_chunk);
@@ -309,6 +309,14 @@ pub(super) fn fuzzy_grep_search<'a>(
                         let (ln, bo) = line_meta[idx];
                         let match_byte_offsets =
                             char_indices_to_byte_offsets(display_line, &match_indices.indices);
+                        let Some(is_definition) = options.classify_definitions.classify_match(
+                            file,
+                            raw_line.as_bytes(),
+                            &match_byte_offsets,
+                            true,
+                        ) else {
+                            continue;
+                        };
                         let col = match_byte_offsets
                             .first()
                             .map(|r| r.0 as usize)
@@ -319,10 +327,7 @@ pub(super) fn fuzzy_grep_search<'a>(
                             line_number: ln,
                             col,
                             byte_offset: bo,
-                            is_definition: classify_definition(
-                                options.classify_definitions,
-                                display_line,
-                            ),
+                            is_definition,
                             line_content: display_line.to_string(),
                             match_byte_offsets,
                             fuzzy_score: Some(match_indices.score),

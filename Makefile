@@ -19,7 +19,7 @@ SHELL := bash
 # string rather than the literal `-o` / `pipefail` tokens.
 .SHELLFLAGS := -o pipefail -euc
 
-.PHONY: build build-c-lib build-mcp install install-mcp install-mcp-artifact install-pi-local install-pi-artifact remove-pi-online install-agents release-local uninstall test test-rust test-rescan test-rescan-known-defects rescan-probe test-c-smoke test-c-api test-lua test-lua-snap test-version test-bun test-node test-js prepare-bun prepare-bun-packaged prepare-node prepare-node-artifact prepare-pi prepare-pi-artifact set-npm-version header test-stress test-stress-seeded test-stress-random test-stress-regressions test-stress-repos test-node-stress sync-js-api sync-js-api-check bump-homebrew-formula bump-install-mcp-sh test-bun-compile bench-search bench-grep
+.PHONY: build build-c-lib build-mcp install install-mcp install-mcp-artifact install-pi-local install-pi-artifact remove-pi-online install-agents release-local uninstall test test-rust test-rescan test-rescan-known-defects rescan-probe test-c-smoke test-c-api test-lua test-lua-snap test-version test-bun test-node test-js prepare-bun prepare-bun-packaged prepare-node prepare-node-artifact prepare-pi prepare-pi-artifact set-npm-version header test-stress test-stress-seeded test-stress-random test-stress-regressions test-stress-repos test-node-stress sync-js-api sync-js-api-check bump-homebrew-formula bump-install-mcp-sh test-bun-compile bench-search bench-grep bench-definition
 
 all: format test lint
 
@@ -137,6 +137,9 @@ bench-nvim-grep-lines: build-e2e
 bench-nvim-input: test-setup build-e2e
 	MINI_DIR="$(MINI_DIR)" nvim --headless -u NONE -l scripts/bench-picker-input.lua
 
+bench-definition:
+	cargo bench -p fff-search --no-default-features --features zlob --bench definition_bench -- $(BENCH_ARGS)
+
 # Watcher rescan harness: asserts that editing, build output, git activity and
 # preview reads all stay on the incremental path instead of re-walking the tree.
 test-rescan:
@@ -177,7 +180,8 @@ test-c-api: test-c-smoke
 # so check the stdout in case the sigsegv coming out of fff was printed (actual regression).
 # Output is streamed live via `tee`; pipefail (set above) propagates nvim's exit.
 test-lua: test-setup build-e2e
-	@logfile=$$(mktemp); \
+	@set -e -o pipefail; \
+	logfile=$$(mktemp); \
 	trap 'rm -f "$$logfile"' EXIT; \
 	nvim --headless -u tests/minimal_init.lua \
 		-c "PlenaryBustedDirectory tests/ {minimal_init = 'tests/minimal_init.lua'}" 2>&1 \
@@ -189,7 +193,8 @@ test-lua: test-setup build-e2e
 	fi
 
 test-lua-snap: test-setup build-e2e
-	@logfile=$$(mktemp); \
+	@set -e -o pipefail; \
+	logfile=$$(mktemp); \
 	trap 'rm -f "$$logfile"' EXIT; \
 	nvim --headless -u tests/minimal_init.lua \
 		-c "lua local ok,err=pcall(require('mini.test').run_file,'tests/picker_ui_snap.lua'); if not ok then io.stderr:write('mini.test failed to load: '..tostring(err)..'\\n'); vim.cmd('cquit 2') end" 2>&1 \
