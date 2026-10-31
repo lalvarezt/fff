@@ -1595,11 +1595,30 @@ impl FilePicker {
             "Updating git status",
         );
 
-        let mode = self.mode;
         let bp = self.base_path.clone();
-        let shared_base = self.sync_data.shared_base.clone();
         let frecency = shared_frecency.read()?;
         let reader = frecency.as_ref().map(FrecencyTracker::reader);
+
+        // Dense refreshes scan the index once instead of binary-searching every status.
+        if !cfg!(windows)
+            && status_cache.statuses_len() >= 8192
+            && status_cache.statuses_len() >= self.sync_data.files.len() / 2
+        {
+            let mut path = [0; PATH_BUF_SIZE];
+            for index in 0..self.sync_data.files.len() {
+                let file = &self.sync_data.files[index];
+                let arena = if index < self.sync_data.base_count {
+                    self.sync_data.arena_base_ptr()
+                } else {
+                    self.sync_data.arena_overflow_ptr()
+                };
+                let absolute = file.write_absolute_path(arena, &bp, &mut path);
+                if let Some(status) = status_cache.lookup_status(absolute) {
+                    self.apply_git_status(index, status, reader.as_ref());
+                }
+            }
+            return Ok(());
+        }
 
         let mut directories =
             (status_cache.statuses_len() >= 8192).then(AHashMap::<String, Option<usize>>::new);
@@ -1618,25 +1637,8 @@ impl FilePicker {
                 } else {
                     self.sync_data.find_file_index(&path, &bp)
                 };
-                if let Some((arena, file)) = index.and_then(|i| self.sync_data.get_file_mut(i)) {
-                    file.git_status = Some(status);
-                    if let Some(reader) = reader.as_ref() {
-                        file.update_frecency_scores(
-                            reader,
-                            arena,
-                            &bp,
-                            shared_base.as_deref(),
-                            mode,
-                        );
-                    }
-                    // Update parent dir frecency inline. `DirItem` has an
-                    // interior-mutable atomic score, so `&self` access is
-                    // enough — no write aliasing against Arc clones.
-                    let score = file.access_frecency_score as i32;
-                    let dir_idx = file.parent_dir_index as usize;
-                    if let Some(dir) = self.sync_data.dirs.get(dir_idx) {
-                        dir.update_frecency_if_larger(score);
-                    }
+                if let Some(index) = index {
+                    self.apply_git_status(index, status, reader.as_ref());
                 } else {
                     // Expected on sparse checkouts: git reports a status for
                     // a path that isn't materialized on disk and therefore
@@ -1647,6 +1649,35 @@ impl FilePicker {
             })?;
 
         Ok(())
+    }
+
+    fn apply_git_status(
+        &mut self,
+        index: usize,
+        status: Status,
+        reader: Option<&FrecencyReader<'_>>,
+    ) {
+        let arena = if index < self.sync_data.base_count {
+            self.sync_data.arena_base_ptr()
+        } else {
+            self.sync_data.arena_overflow_ptr()
+        };
+        let Some(file) = self.sync_data.files.get_mut(index) else {
+            return;
+        };
+        file.git_status = Some(status);
+        if let Some(reader) = reader {
+            file.update_frecency_scores(
+                reader,
+                arena,
+                &self.base_path,
+                self.sync_data.shared_base.as_deref(),
+                self.mode,
+            );
+        }
+        if let Some(dir) = self.sync_data.dirs.get(file.parent_dir_index as usize) {
+            dir.update_frecency_if_larger(file.access_frecency_score as i32);
+        }
     }
 
     // Replaces every recency score with a freshly computed set. `None` zeroes
@@ -2597,6 +2628,60 @@ pub(crate) fn hint_allocator_collect() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dense_git_refresh_updates_scoped_base_and_overflow_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = crate::path_utils::canonicalize(dir.path()).unwrap();
+        let repo = Repository::init(&root).unwrap();
+        let base = root.join("scope");
+        for i in 0..8192 {
+            let path = base.join(format!("group_{}/Main_界_{i}.rs", i / 128));
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "fn main() {}\n").unwrap();
+        }
+        std::fs::write(root.join("outside.rs"), "outside\n").unwrap();
+        let mut picker = FilePicker::new(FilePickerOptions {
+            base_path: base.to_string_lossy().into_owned(),
+            enable_content_indexing: false,
+            enable_mmap_cache: false,
+            watch: false,
+            ..Default::default()
+        })
+        .unwrap();
+        picker.collect_files().unwrap();
+        let late = base.join("late.rs");
+        std::fs::write(&late, "late\n").unwrap();
+        assert!(picker.handle_create_or_modify(&late).is_some());
+
+        let mut index = repo.index().unwrap();
+        index
+            .add_all(["*"], git2::IndexAddOption::DEFAULT, None)
+            .unwrap();
+        index.write().unwrap();
+        for expected in [Status::INDEX_NEW, Status::WT_NEW] {
+            let cache = GitStatusCache::read_git_status(
+                repo.workdir(),
+                &mut crate::git::default_status_options(),
+            )
+            .unwrap();
+            assert_eq!(cache.statuses_len(), 8194);
+            picker
+                .update_git_statuses(cache, &SharedFrecency::noop())
+                .unwrap();
+            assert_eq!(picker.get_files().len(), 8193);
+            for file in picker.get_files() {
+                assert_eq!(
+                    file.git_status,
+                    Some(expected),
+                    "{}",
+                    file.relative_path(&picker)
+                );
+            }
+            index.clear().unwrap();
+            index.write().unwrap();
+        }
+    }
 
     #[test]
     fn blueprint_text_is_searchable_while_blp_textures_stay_binary() {
