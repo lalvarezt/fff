@@ -66,6 +66,7 @@ describe('cached picker rendering', function()
     ns = vim.api.nvim_create_namespace('fff-render-cache-test')
     renderer.init({ state = { active = true } })
     state.list_buf, state.list_win, state.ns_id = buf, win, ns
+    state.layout = { show_scrollbar = false }
     state.suggestion_source = nil
     ts.cleanup()
   end)
@@ -75,6 +76,7 @@ describe('cached picker rendering', function()
     vim.api.nvim_win_close(win, true)
     vim.api.nvim_buf_delete(buf, { force = true })
     state.last_render_ctx = nil
+    state.layout = nil
   end)
 
   for _, position in ipairs({ 'top', 'bottom' }) do
