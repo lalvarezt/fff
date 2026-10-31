@@ -219,6 +219,9 @@ function M.clear_preview()
   if not P.state.active then return end
   if not S.preview_visible then return end
 
+  M.close_preview_timer()
+  preview.clear()
+
   vim.api.nvim_win_set_config(S.preview_win, {
     title = ' Preview ',
     title_pos = filename_pos(),
