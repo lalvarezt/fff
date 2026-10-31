@@ -3,6 +3,7 @@ local workload = vim.env.FFF_BENCH_PATH or root
 local output = vim.env.FFF_BENCH_OUTPUT or vim.fn.tempname() .. '.json'
 local position = vim.env.FFF_BENCH_POSITION or 'top'
 local kind = vim.env.FFF_BENCH_KIND or 'files'
+local init = vim.env.FFF_BENCH_INIT or 'NONE'
 local responses, marks, presented, trace, stderr = {}, {}, {}, {}, {}
 local sequence, phase = 0, 0
 local changed = false
@@ -32,7 +33,7 @@ local function receive(packet)
   end
 end
 
-local job = vim.fn.jobstart({ 'nvim', '--embed', '--headless', '-u', 'NONE', '-i', 'NONE', '-n' }, {
+local job = vim.fn.jobstart({ 'nvim', '--embed', '--headless', '-u', init, '-i', 'NONE', '-n' }, {
   on_stdout = function(_, chunks)
     -- Job callbacks encode embedded NUL bytes as newlines.
     for i, line in ipairs(chunks) do
@@ -188,6 +189,7 @@ local function open()
     local opts = { layout = { prompt_position = position } }
     if kind == 'files' then require('fff').find_files(opts)
     else opts.grep = { modes = {kind} }; require('fff').live_grep(opts) end
+    assert(require('fff.picker_ui.picker_ui').state.config.layout.prompt_position == position)
   ]],
     { kind, position }
   )
@@ -198,6 +200,19 @@ local ok, err = pcall(function()
   lua("require('fff.rust').wait_for_initial_scan(15000)")
   measure('first_key', 'm', function() send('nvim_input', { 'm' }) end, 1)
   measure('burst', 'main', function() send('nvim_input', { 'ain' }) end, 2)
+  measure('clear_burst', '', function() send('nvim_input', { '<BS><BS><BS><BS>' }) end, kind == 'files' and 1 or 0)
+  local query = ''
+  for key in ('test'):gmatch('.') do
+    query = query .. key
+    measure('type_' .. query, query, function() send('nvim_input', { key }) end, 1)
+  end
+  for remaining = 3, 0, -1 do
+    query = ('test'):sub(1, remaining)
+    measure('erase_' .. remaining, query, function() send('nvim_input', { '<BS>' }) end, kind == 'files' and 1 or 0)
+  end
+  -- End on a distinct query so a coalesced no-op still has an observable redraw.
+  measure('rapid_type_erase', 'm', function() send('nvim_input', { 'test<BS><BS><BS><BS>m' }) end, 1)
+  measure('restore_main', 'main', function() send('nvim_input', { 'ain' }) end, 2)
   for i = 1, 8 do
     local key = position == 'bottom' and '<Up>' or '<Down>'
     measure('next_' .. i, 'main', function() send('nvim_input', { key }) end, 2, i + 1)
