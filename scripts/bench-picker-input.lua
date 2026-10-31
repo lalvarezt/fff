@@ -3,8 +3,8 @@ local root = vim.env.FFF_BENCH_ROOT or script_root
 vim.opt.runtimepath:prepend(vim.env.MINI_DIR or (script_root .. '/../mini.nvim'))
 local child = require('mini.test').new_child_neovim()
 child.start({ '--clean', '-n', '-i', 'NONE' })
-child.o.columns = 160
-child.o.lines = 48
+child.o.columns = tonumber(vim.env.FFF_BENCH_COLUMNS) or 160
+child.o.lines = tonumber(vim.env.FFF_BENCH_LINES) or 48
 child.lua(string.format(
   [[
   vim.opt.runtimepath:prepend(%q)

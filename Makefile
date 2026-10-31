@@ -154,6 +154,10 @@ bench-nvim-grep-lines: build-e2e
 bench-nvim-input: test-setup build-e2e
 	MINI_DIR="$(MINI_DIR)" nvim --headless -u NONE -l scripts/bench-picker-input.lua
 
+.PHONY: bench-nvim-screen
+bench-nvim-screen: build-e2e
+	nvim --headless -u NONE -l scripts/bench-picker-screen.lua
+
 bench-definition:
 	cargo bench -p fff-search --no-default-features --features zlob --bench definition_bench -- $(BENCH_ARGS)
 

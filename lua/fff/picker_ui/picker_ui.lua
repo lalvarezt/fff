@@ -787,9 +787,9 @@ function M.monitor_scan_progress(iteration)
 
     -- progressive decay for larger directories
     local timeout
-    if iteration < 10 then
-      timeout = 100
-    elseif iteration < 20 then
+    if iteration < 60 then
+      timeout = 16
+    elseif iteration < 70 then
       timeout = 300
     else
       timeout = 500
