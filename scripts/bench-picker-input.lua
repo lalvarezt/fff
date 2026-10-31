@@ -13,16 +13,28 @@ child.lua(string.format(
     frecency = { enabled = false }, history = { enabled = false } }
   require('fff.core').ensure_initialized()
   require('fff.rust').wait_for_initial_scan(8000)
+  if vim.env.FFF_BENCH_PAUSE_GIT then
+    require('fff.rust').pause_git_status()
+    require('fff.file_picker').resume_git_status = function() end
+  end
+  if vim.env.FFF_BENCH_PROFILE then require('jit.p').start('fi1', vim.env.FFF_BENCH_PROFILE) end
   local picker = require('fff.picker_ui.picker_ui')
   _G.fff_input_metrics = {}
   local function instrument(module, key, label)
     local original = module[key]
     module[key] = function(...)
       local start = vim.uv.hrtime()
+      local cpu_start = vim.env.FFF_BENCH_DETAILS and os.clock()
       local result = original(...)
       local entry = _G.fff_input_metrics[label] or { count = 0, ms = 0 }
       entry.count = entry.count + 1
       entry.ms = entry.ms + (vim.uv.hrtime() - start) / 1e6
+      if cpu_start then entry.cpu_ms = (entry.cpu_ms or 0) + (os.clock() - cpu_start) * 1000 end
+      if label == 'grep_search' then
+        entry.args = { ... }
+        entry.searched = result.total_files_searched
+        entry.items = #result.items
+      end
       _G.fff_input_metrics[label] = entry
       return result
     end
@@ -56,7 +68,9 @@ local function snapshot(label)
     fields[#fields + 1] = string.format('%s=%d/%.3fms', key, entry.count, entry.ms)
   end
   fields[#fields + 1] = 'query=' .. child.lua_get('require("fff.picker_ui.picker_ui").state.query')
+  fields[#fields + 1] = 'items=' .. child.lua_get('#require("fff.picker_ui.picker_ui").state.filtered_items')
   print(table.concat(fields, ' '))
+  if vim.env.FFF_BENCH_DETAILS then print(vim.json.encode({ label = label, metrics = metrics })) end
 end
 
 for _, position in ipairs({ 'top', 'bottom' }) do
@@ -102,4 +116,5 @@ for _, position in ipairs({ 'top', 'bottom' }) do
     child.lua('require("fff.picker_ui.picker_ui").close(); vim.wait(50)')
   end
 end
+child.lua("if vim.env.FFF_BENCH_PROFILE then require('jit.p').stop() end")
 child.stop()

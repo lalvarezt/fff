@@ -1062,6 +1062,8 @@ Set `BLAZE` to use another launcher path or `BLAZE_BACKEND=llvm` to use Blaze's 
 
 ### Measure Neovim performance
 
+See the [2026-10-31 performance report](docs/performance/2026-10-31.md) for the upstream comparison, Git-refresh fixes, and remaining hotspots.
+
 Use optimized Cargo builds for measurements. `FFF_BENCH_ROOT` selects a complete checkout with its matching native library. `FFF_BENCH_PATH` selects the repository searched by the input benchmark. Both default to this checkout.
 
 ```sh
@@ -1071,9 +1073,13 @@ FFF_BENCH_ROOT=/tmp/fff-base FFF_BENCH_PATH=/path/to/workload nvim --headless -u
 nvim --headless -u NONE -l scripts/bench-grep-lines.lua
 ```
 
-The render benchmark reports median CPU time per operation across seven samples. Set `FFF_BENCH_ITERATIONS` and `FFF_BENCH_SAMPLES` to adjust its duration. Set `FFF_BENCH_PROFILE=/tmp/fff-lua.profile` to collect a LuaJIT sampling profile during that benchmark.
+The render benchmark reports median elapsed time per operation across seven samples. Set `FFF_BENCH_ITERATIONS` and `FFF_BENCH_SAMPLES` to adjust its duration. Set `FFF_BENCH_PROFILE=/tmp/fff-lua.profile` to collect a LuaJIT sampling profile during that benchmark.
+
+Set `FFF_BENCH_SECTION=render` or `FFF_BENCH_SECTION=preview` to isolate the render benchmark's work. The input benchmark also accepts `FFF_BENCH_PROFILE`. Set `FFF_BENCH_DETAILS=1` for JSON records containing FFI arguments, result counts, and process CPU time. `FFF_BENCH_PAUSE_GIT=1` disables Git refreshes in the benchmark child to isolate Git-worker contention.
 
 The input benchmark drives a child Neovim through file search and plain, regex, and fuzzy grep with both prompt positions. Its timings cover instrumented search, rendering, and preview calls, rather than total key-to-screen latency. Never compare versions by replacing individual Lua modules: that mixes implementations and can hide integration costs.
+
+Run `scripts/bench-native-search.lua` with the same Neovim invocation to measure repeated native grep calls without opening the picker. `FFF_BENCH_PAGE_SIZE` sets the result page size; `FFF_BENCH_RAW_CONFIG=1` uses the bridge's native defaults.
 
 Run `make bench-definition` for Criterion benchmarks of Rust, JavaScript, and Python declarations and references. Each case measures classification through `FileItem::is_definition_match`, with match ranges prepared before timing. The `mixed_256` cases classify shuffled batches of 256 lines; their throughput is reported in lines per second. File indexing, I/O, and finding query matches are excluded.
 

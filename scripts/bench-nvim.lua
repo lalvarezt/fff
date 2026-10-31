@@ -78,7 +78,7 @@ local function context(mode, position)
   }
 end
 
-for _, position in ipairs({ 'top', 'bottom' }) do
+for _, position in ipairs(vim.env.FFF_BENCH_SECTION == 'preview' and {} or { 'top', 'bottom' }) do
   for _, mode in ipairs({ 'files', 'grep' }) do
     local ctx = context(mode, position)
     local function full_render()
@@ -137,7 +137,7 @@ for i = 1, 30 do
 end
 assert(lookup, 'Preview buffer lookup was not found')
 
-for _, count in ipairs({ 1, 200, 1000 }) do
+for _, count in ipairs(vim.env.FFF_BENCH_SECTION == 'render' and {} or { 1, 200, 1000 }) do
   local buffers = {}
   for i = 1, count do
     local buffer = vim.api.nvim_create_buf(false, true)
