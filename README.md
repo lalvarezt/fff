@@ -710,6 +710,14 @@ finder.value.destroy();
 
 Every method returns a `Result<T>` (`{ ok: true, value } | { ok: false, error }`). Full type reference: [`packages/fff-node/src/fff-api.ts`](./packages/fff-node/src/fff-api.ts).
 
+Pass `extraIgnore` to apply `.gitignore` rules when the SDK builds and updates its index. The SDK interprets paths relative to `basePath` and applies these rules before on-disk ignore rules. A `!` prefix re-includes a path. Re-include any ignored parent directories too. The published native packages support this option through zlob.
+
+```ts
+FileFinder.create({ basePath: process.cwd(), extraIgnore: ["/generated/", "!/keep.log"] });
+```
+
+Set `disableGit: true` to skip Git discovery, status, ranking, and Git ignore rules. The scan includes hidden files and skips Git metadata under `.git`. Set `disableIgnoreFiles: true` to skip rules from `.ignore` files independently. Both options require zlob and work with `extraIgnore`.
+
 ### Definition modes
 
 Each core grep call uses one `classify_definitions` mode. Rust stores it in `GrepSearchOptions` as `DefinitionMode`, defaulting to `Off`. The JavaScript SDKs expose the same setting as `classifyDefinitions`.
@@ -1042,7 +1050,7 @@ Bug reports and pull requests welcome. Agentic coding tools are welcome to be us
 
 Install [Blaze](https://github.com/indexable-inc/blaze/blob/main/docs/install.md) with its official installer, using `--version 0.20261030.1`. This is a canary release, pinned in `Cargo.toml`. Blaze downloads its own Rust toolchain once; Cargo continues to use `rust-toolchain.toml`.
 
-The `zlob` backend requires Zig 0.16.0. If you use [zvm](https://github.com/tristanisham/zvm), install it with `zvm install 0.16.0`. The development commands select that version for their process. Without zvm, put Zig 0.16.0 on `PATH`.
+The `zlob` backend requires Zig 0.17.1. If you use [zvm](https://github.com/tristanisham/zvm), install it with `zvm install 0.17.1`. The build and development commands use that version from `PATH` or select it through zvm for their process. Without zvm, put Zig 0.17.1 on `PATH`.
 
 ```sh
 make dev                         # Build the Neovim library
