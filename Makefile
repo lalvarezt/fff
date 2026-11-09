@@ -65,20 +65,20 @@ sync-js-api-check:
 	exit $$status
 
 build:
-	cargo build --release --no-default-features --features zlob
+	bash scripts/with-zig.sh cargo build --release --no-default-features --features zlob
 
 # Only the crates the e2e suites load (nvim lua tests + C/bun/node FFI tests),
 # skipping fff-python (pyo3) and fff-mcp (tokio/rmcp) which e2e never touches.
 build-e2e:
-	cargo build --release -p fff-nvim -p fff-c --no-default-features --features zlob
+	bash scripts/with-zig.sh cargo build --release -p fff-nvim -p fff-c --no-default-features --features zlob
 
 # Build the C library, header, and pkg-config file via cargo-c.
 build-c-lib:
 	@command -v cargo-cbuild >/dev/null 2>&1 || { echo "error: cargo-c is required to build the C library. Install it with: cargo install cargo-c" >&2; exit 1; }
-	cargo cbuild -p fff-c --release --no-default-features --features zlob --prefix=$(PREFIX) --bindir=$(BINDIR) --libdir=$(LIBDIR) --includedir=$(INCLUDEDIR) --pkgconfigdir=$(PKGCONFIGDIR)
+	bash scripts/with-zig.sh cargo cbuild -p fff-c --release --no-default-features --features zlob --prefix=$(PREFIX) --bindir=$(BINDIR) --libdir=$(LIBDIR) --includedir=$(INCLUDEDIR) --pkgconfigdir=$(PKGCONFIGDIR)
 
 build-mcp:
-	cargo build --release -p fff-mcp --features zlob
+	bash scripts/with-zig.sh cargo build --release -p fff-mcp --features zlob
 
 header:
 	cbindgen --config crates/fff-c/cbindgen.toml --crate fff-c --output crates/fff-c/include/fff.h
